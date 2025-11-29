@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { BottomNav } from '../components/BottomNav.jsx';
 
 export const HomePage = () => {
   const { user } = useAuth();
@@ -93,8 +94,8 @@ export const HomePage = () => {
             <img
               src="https://storage.yandexcloud.net/optika/plan_ai/heroPgHouse3.png" // IMAGE_URL: Modern living room background
               alt="3D View"
-              className="absolute left-0 top-0 h-full w-auto object-contain"
-              style={{ transform: 'translateX(15%)',   marginLeft: '-12px' }}
+              className="absolute right-0 top-0 h-full w-auto object-contain opacity-20"
+              style={{ transform: 'translateX(15%)' }}
             />
             <div className="relative z-10">
               <h3 className="font-bold text-white text-base mb-1">3D-просмотр</h3>
@@ -125,20 +126,21 @@ export const HomePage = () => {
 
       {/* Sharing Banner */}
       <div className="px-4 mt-6">
-        <div className="bg-blue-100 rounded-2xl p-6 relative overflow-hidden">
+        <div className="bg-blue-100 rounded-2xl p-2 relative overflow-visible">
           {/* TODO: Replace with actual 3D isometric apartment layout image URL */}
           <img
             src="https://storage.yandexcloud.net/optika/plan_ai/heroPgHouse5.png" // IMAGE_URL: 3D isometric apartment layout (left side)
             alt="Apartment layout"
-            className="absolute left-0 top-0 h-full w-1/3 object-cover opacity-30"
+            className="absolute left-0 top-0 object-cover"
+            style={{ transform: 'translateX(-10%)' }}
           />
           <div className="relative z-10 ml-auto" style={{ width: '65%' }}>
-            <h3 className="font-bold text-gray-900 text-lg mb-3">
+            <h3 className="font-bold text-blue-950 text-md mb-3 text-end">
               Поделитесь своими результатами планировки квартиры с другими!
             </h3>
             <button
               onClick={() => navigate('/favorites')}
-              className="bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors w-full"
+              className="bg-blue-600 text-white font-semibold py-1 rounded-xl hover:bg-blue-700 transition-colors w-full"
             >
               В избранное
             </button>
@@ -147,70 +149,7 @@ export const HomePage = () => {
       </div>
 
       {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-blue-600 rounded-t-3xl px-4 py-3">
-        <div className="flex justify-around items-center max-w-md mx-auto">
-          {/* Home - Active */}
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex flex-col items-center space-y-1"
-          >
-            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center">
-              {/* TODO: Replace with actual home icon URL */}
-              <img
-                src="https://via.placeholder.com/24" // IMAGE_URL: Home icon
-                alt="Home"
-                className="w-6 h-6"
-              />
-            </div>
-          </button>
-
-          {/* Hashtags */}
-          <button className="flex flex-col items-center space-y-1">
-            {/* TODO: Replace with actual hashtag icon URL */}
-            <img
-              src="https://via.placeholder.com/24" // IMAGE_URL: Hashtag icon
-              alt="Hashtags"
-              className="w-6 h-6 opacity-70"
-            />
-          </button>
-
-          {/* Messages */}
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex flex-col items-center space-y-1"
-          >
-            {/* TODO: Replace with actual messages icon URL */}
-            <img
-              src="https://via.placeholder.com/24" // IMAGE_URL: Messages/Chat icon
-              alt="Messages"
-              className="w-6 h-6 opacity-70"
-            />
-          </button>
-
-          {/* Favorites */}
-          <button
-            onClick={() => navigate('/favorites')}
-            className="flex flex-col items-center space-y-1"
-          >
-            {/* TODO: Replace with actual favorites icon URL */}
-            <img
-              src="https://via.placeholder.com/24" // IMAGE_URL: Heart/Favorites icon
-              alt="Favorites"
-              className="w-6 h-6 opacity-70"
-            />
-          </button>
-
-          {/* Profile */}
-          <button className="flex flex-col items-center space-y-1">
-            {/* TODO: Replace with actual profile icon URL */}
-            <img
-              src="https://via.placeholder.com/24" // IMAGE_URL: Profile/Person icon
-              alt="Profile"
-              className="w-6 h-6 opacity-70"
-            />
-          </button>
-        </div>
-      </div>
+      <BottomNav />
     </div>
   );
 };
