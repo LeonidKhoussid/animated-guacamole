@@ -38,6 +38,7 @@ export const ChatAIPage = () => {
   const [variants, setVariants] = useState([]);
   const [requestId, setRequestId] = useState(null);
   const [processing, setProcessing] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const handleWebSocketMessage = (data) => {
     console.log('WebSocket message received:', data);
@@ -72,8 +73,9 @@ export const ChatAIPage = () => {
     }
   };
 
+  // Only connect WebSocket if we're not loading from history and we have a requestId
   const { isConnected, error } = useWebSocket(
-    requestId ? `/ai/stream/${requestId}` : null,
+    requestId && !isLoadingHistory ? `/ai/stream/${requestId}` : null,
     handleWebSocketMessage
   );
 
@@ -82,10 +84,14 @@ export const ChatAIPage = () => {
     const requestIdFromQuery = searchParams.get('requestId');
     
     if (requestIdFromQuery) {
-      // Load specific request from history
-      loadChatFromRequest(requestIdFromQuery);
+      // Load specific request from history - don't connect WebSocket
+      setIsLoadingHistory(true);
+      loadChatFromRequest(requestIdFromQuery).finally(() => {
+        setIsLoadingHistory(false);
+      });
     } else {
       // Load persisted state
+      setIsLoadingHistory(false);
       const savedState = loadChatState(planId);
       setMessages(savedState.messages || []);
       setVariants(savedState.variants || []);
@@ -176,13 +182,20 @@ export const ChatAIPage = () => {
   const handleSend = async (message) => {
     setMessages((prev) => [...prev, { role: 'user', content: message }]);
     setProcessing(true);
+    setIsLoadingHistory(false); // New message means we're not loading history anymore
 
     try {
-      const response = await apiClient.post('/ai/request', {
+      const requestBody = {
         plan_id: planId,
         text: message,
-        previous_request_id: requestId, // Include previous request for context
-      });
+      };
+      
+      // Only include previous_request_id if it exists
+      if (requestId) {
+        requestBody.previous_request_id = requestId;
+      }
+      
+      const response = await apiClient.post('/ai/request', requestBody);
       setRequestId(response.data.request_id);
       setMessages((prev) => [
         ...prev,

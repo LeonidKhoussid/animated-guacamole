@@ -4,9 +4,12 @@ import multipart from '@fastify/multipart';
 import jwt from '@fastify/jwt';
 import websocket from '@fastify/websocket';
 import staticFiles from '@fastify/static';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import dotenv from 'dotenv';
+import { swaggerOptions, swaggerUiOptions } from './config/swagger.js';
 
 // Load environment variables
 dotenv.config();
@@ -23,6 +26,10 @@ fastify.register(cors, {
   origin: true,
   credentials: true,
 });
+
+// Register Swagger (must be after CORS but before routes)
+fastify.register(swagger, swaggerOptions);
+fastify.register(swaggerUi, swaggerUiOptions);
 
 fastify.register(multipart, {
   limits: {
@@ -58,7 +65,20 @@ fastify.register(applicationsRoutes);
 fastify.register(adminRoutes);
 
 // Health check
-fastify.get('/health', async (request, reply) => {
+fastify.get('/health', {
+  schema: {
+    tags: ['Health'],
+    description: 'Health check endpoint',
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          status: { type: 'string' },
+        },
+      },
+    },
+  },
+}, async (request, reply) => {
   return { status: 'ok' };
 });
 

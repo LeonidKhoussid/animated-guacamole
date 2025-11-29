@@ -45,20 +45,32 @@ export const ensureUploadDir = async () => {
 };
 
 // Save uploaded file (S3 or local)
-export const saveFile = async (file, filename) => {
-  const buffer = await file.toBuffer();
+// Accepts either a file object (with toBuffer() method) or a Buffer directly
+export const saveFile = async (fileOrBuffer, filename, contentType = 'image/png', folder = 'plans') => {
+  let buffer;
+  let mimetype = contentType;
+  
+  // Handle both file objects and buffers
+  if (Buffer.isBuffer(fileOrBuffer)) {
+    buffer = fileOrBuffer;
+  } else if (fileOrBuffer && typeof fileOrBuffer.toBuffer === 'function') {
+    buffer = await fileOrBuffer.toBuffer();
+    mimetype = fileOrBuffer.mimetype || contentType;
+  } else {
+    throw new Error('Invalid file or buffer provided');
+  }
   
   // Use S3 if configured
   if (s3Client && process.env.YANDEX_S3_BUCKET) {
     try {
       const bucket = process.env.YANDEX_S3_BUCKET;
-      const key = `plans/${filename}`;
+      const key = `${folder}/${filename}`;
       
       await s3Client.send(new PutObjectCommand({
         Bucket: bucket,
         Key: key,
         Body: buffer,
-        ContentType: file.mimetype,
+        ContentType: mimetype,
       }));
       
       // Construct S3 URL
@@ -82,10 +94,17 @@ export const saveFile = async (file, filename) => {
   
   // Fallback to local storage
   await ensureUploadDir();
-  const filePath = join(UPLOAD_DIR, filename);
+  const folderPath = join(UPLOAD_DIR, folder);
+  if (!existsSync(folderPath)) {
+    await mkdir(folderPath, { recursive: true });
+  }
+  const filePath = join(folderPath, filename);
   await writeFile(filePath, buffer);
   console.log(`File saved locally: ${filePath}`);
-  return filePath;
+  
+  // Return URL for local storage
+  const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+  return `${baseUrl}/uploads/${folder}/${filename}`;
 };
 
 // Generate unique filename
