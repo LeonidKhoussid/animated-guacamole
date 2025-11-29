@@ -33,6 +33,11 @@ export const schemas = {
       approvalProbability: { type: 'number', minimum: 0, maximum: 1 },
       thumbnailUrl: { type: 'string', format: 'uri' },
       model3dUrl: { type: 'string', format: 'uri' },
+      planGeometry: { 
+        type: 'object',
+        nullable: true,
+        description: 'Structured geometry data for 3D rendering'
+      },
       createdAt: { type: 'string', format: 'date-time' },
     },
   },

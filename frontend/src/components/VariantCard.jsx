@@ -1,11 +1,19 @@
 import { Link } from 'react-router-dom';
 
-export const VariantCard = ({ variant, onContinueConversation }) => {
+export const VariantCard = ({ variant, onContinueConversation, onClick }) => {
+  const handleCardClick = (e) => {
+    // If onClick is provided, call it
+    if (onClick) {
+      onClick();
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 flex flex-col">
       <Link
         to={`/variant/${variant.id}`}
         className="flex-1"
+        onClick={handleCardClick}
       >
         {variant.thumbnailUrl && (
           <img

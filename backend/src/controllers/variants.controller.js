@@ -4,6 +4,13 @@ export const getVariant = async (request, reply) => {
   try {
     const { id } = request.params;
     const variant = await variantsService.getVariant(id);
+    
+    // Debug: Log what we're sending
+    console.log(`\n📤 getVariant controller - Sending variant ${id}:`);
+    console.log(`   - Has planGeometry: ${!!variant.planGeometry}`);
+    console.log(`   - planGeometry type: ${typeof variant.planGeometry}`);
+    console.log(`   - All keys in variant:`, Object.keys(variant));
+    
     return reply.send(variant);
   } catch (error) {
     if (error.message === 'Variant not found') {

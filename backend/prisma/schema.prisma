@@ -63,6 +63,7 @@ model Variant {
   description           String
   normativeExplanation  String    @map("normative_explanation")
   approvalProbability   Float     @map("approval_probability")
+  planGeometry          Json?     @map("plan_geometry")
   createdAt             DateTime  @default(now()) @map("created_at")
 
   aiRequest             AiRequest   @relation(fields: [aiRequestId], references: [id], onDelete: Cascade)

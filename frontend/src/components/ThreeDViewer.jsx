@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 
-export const ThreeDViewer = ({ variant, viewMode = '3d' }) => {
+export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) => {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
@@ -49,16 +49,27 @@ export const ThreeDViewer = ({ variant, viewMode = '3d' }) => {
   };
 
   useEffect(() => {
-    // Get blueprint URL from variant - try multiple paths
+    // Get blueprint URL from variant - try multiple paths (for fallback)
     const originalUrl = variant?.aiRequest?.plan?.fileUrl || variant?.thumbnailUrl || null;
     const blueprintUrl = getProxyImageUrl(originalUrl);
     
+    // Get planGeometry from prop or variant
+    const geometry = planGeometry || variant?.planGeometry;
+    
     console.log('ThreeDViewer useEffect - Original URL:', originalUrl);
     console.log('ThreeDViewer useEffect - Proxy URL:', blueprintUrl);
+    console.log('ThreeDViewer useEffect - Has geometry:', !!geometry);
     console.log('Container ref:', !!containerRef.current);
     
-    if (!containerRef.current || !blueprintUrl) {
-      console.warn('Cannot initialize viewer - missing container or blueprint URL');
+    if (!containerRef.current) {
+      console.warn('Cannot initialize viewer - missing container');
+      setIsLoading(false);
+      return;
+    }
+
+    // If no geometry and no blueprint URL, can't render
+    if (!geometry && !blueprintUrl) {
+      console.warn('Cannot initialize viewer - missing geometry and blueprint URL');
       setIsLoading(false);
       return;
     }
@@ -109,8 +120,15 @@ export const ThreeDViewer = ({ variant, viewMode = '3d' }) => {
     directionalLight.position.set(10, 20, 15);
     scene.add(directionalLight);
 
-    // Load blueprint image and create house
-    createHouseFromPlan(blueprintUrl, scene);
+    // Priority: Use geometry if available, otherwise fallback to image analysis
+    if (geometry) {
+      console.log('Using structured geometry to create walls');
+      createWallsFromGeometry(geometry, scene);
+      setIsLoading(false);
+    } else if (blueprintUrl) {
+      console.log('Falling back to image analysis');
+      createHouseFromPlan(blueprintUrl, scene);
+    }
 
     // Mouse controls for orbital rotation (only for 3d view)
     if (viewMode === '3d') {
@@ -209,7 +227,7 @@ export const ThreeDViewer = ({ variant, viewMode = '3d' }) => {
         }
       };
     }
-  }, [variant, viewMode]); // Re-run when variant or viewMode changes
+  }, [variant, viewMode, planGeometry]); // Re-run when variant, viewMode, or planGeometry changes
 
   // Handle window resize
   useEffect(() => {
@@ -230,6 +248,129 @@ export const ThreeDViewer = ({ variant, viewMode = '3d' }) => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Create walls from structured geometry data
+  const createWallsFromGeometry = (planGeometry, scene) => {
+    if (!planGeometry || !planGeometry.geometry || !planGeometry.geometry.walls) {
+      console.warn('Invalid plan geometry provided');
+      return;
+    }
+
+    const walls = planGeometry.geometry.walls;
+    const bearingWalls = walls.filter(w => w.isBearing);
+    const nonBearingWalls = walls.filter(w => !w.isBearing);
+
+    console.log('\n========== 3D VIEWER: BUILDING WALLS FROM GEOMETRY ==========');
+    console.log(`📐 Total walls: ${walls.length}`);
+    console.log(`🚫 Bearing walls (CANNOT CHANGE): ${bearingWalls.length} - shown in RED`);
+    console.log(`✅ Non-bearing walls (CAN CHANGE): ${nonBearingWalls.length} - shown in GREEN`);
+    
+    if (bearingWalls.length > 0) {
+      console.log('\n⚠️  IMPORTANT: The following walls are BEARING (load-bearing) and CANNOT be modified:');
+      bearingWalls.forEach((wall, idx) => {
+        console.log(`  ${idx + 1}. Wall ID: ${wall.id || 'unnamed'}`);
+        console.log(`     - Position: from (${wall.start.x}m, ${wall.start.y}m) to (${wall.end.x}m, ${wall.end.y}m)`);
+        console.log(`     - Dimensions: height=${wall.height || 2.7}m, thickness=${wall.thickness || 0.15}m`);
+        console.log(`     - ⛔ This wall supports the building structure - DO NOT modify!`);
+      });
+    }
+    
+    if (nonBearingWalls.length > 0) {
+      console.log('\n✅ The following walls are NON-BEARING and CAN be modified:');
+      nonBearingWalls.forEach((wall, idx) => {
+        console.log(`  ${idx + 1}. Wall ID: ${wall.id || 'unnamed'}`);
+        console.log(`     - Position: from (${wall.start.x}m, ${wall.start.y}m) to (${wall.end.x}m, ${wall.end.y}m)`);
+        console.log(`     - Dimensions: height=${wall.height || 2.7}m, thickness=${wall.thickness || 0.15}m`);
+      });
+    }
+    
+    console.log('===========================================================\n');
+
+    // Clear previous models (keep lights)
+    scene.children.forEach((child, index) => {
+      if (index > 2) scene.remove(child);
+    });
+
+    const externalGroup = new THREE.Group();
+    const internalGroup = new THREE.Group();
+
+    // Material for bearing walls (red)
+    const bearingMaterial = new THREE.MeshPhongMaterial({ 
+      color: 0xff0000,
+      specular: 0x111111,
+      shininess: 30
+    });
+
+    // Material for non-bearing walls (green)
+    const nonBearingMaterial = new THREE.MeshPhongMaterial({ 
+      color: 0x00ff00,
+      specular: 0x111111,
+      shininess: 30
+    });
+
+    walls.forEach((wall) => {
+      // Validate wall data
+      if (!wall.start || !wall.end || wall.start.x === undefined || wall.start.y === undefined || 
+          wall.end.x === undefined || wall.end.y === undefined) {
+        console.warn('Invalid wall data, skipping:', wall);
+        return;
+      }
+
+      const start = new THREE.Vector3(wall.start.x, 0, wall.start.y);
+      const end = new THREE.Vector3(wall.end.x, 0, wall.end.y);
+      
+      // Calculate wall length and direction
+      const direction = new THREE.Vector3().subVectors(end, start);
+      const length = direction.length();
+      
+      // Skip zero-length walls
+      if (length < 0.01) {
+        console.warn('Wall has zero or near-zero length, skipping:', wall);
+        return;
+      }
+
+      const height = wall.height || 2.7;
+      const thickness = wall.thickness || 0.15;
+
+      // Normalize direction for rotation
+      direction.normalize();
+
+      // Create wall geometry
+      const wallGeometry = new THREE.BoxGeometry(length, height, thickness);
+      const wallMesh = new THREE.Mesh(
+        wallGeometry,
+        wall.isBearing ? bearingMaterial : nonBearingMaterial
+      );
+
+      // Position wall at midpoint
+      const midpoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+      wallMesh.position.set(midpoint.x, height / 2, midpoint.z);
+
+      // Rotate wall to align with direction
+      // Calculate angle from direction vector
+      const angle = Math.atan2(direction.x, direction.z);
+      wallMesh.rotation.y = angle;
+
+      // Add to appropriate group
+      if (wall.isBearing) {
+        externalGroup.add(wallMesh);
+      } else {
+        internalGroup.add(wallMesh);
+      }
+    });
+
+    if (externalGroup.children.length > 0) {
+      scene.add(externalGroup);
+    }
+    if (internalGroup.children.length > 0) {
+      scene.add(internalGroup);
+    }
+
+    console.log(`✅ 3D Scene created successfully:`);
+    console.log(`   - ${externalGroup.children.length} bearing wall(s) rendered in RED`);
+    console.log(`   - ${internalGroup.children.length} non-bearing wall(s) rendered in GREEN`);
+    console.log(`\n💡 Visual guide: RED walls = cannot change, GREEN walls = can modify\n`);
+  };
 
   const createHouseFromPlan = (imageSrc, scene) => {
     console.log('Loading blueprint image from:', imageSrc);

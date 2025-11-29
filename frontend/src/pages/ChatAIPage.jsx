@@ -4,6 +4,7 @@ import { ChatMessages } from '../components/ChatMessages.jsx';
 import { ChatInput } from '../components/ChatInput.jsx';
 import { VariantCard } from '../components/VariantCard.jsx';
 import { BottomNav } from '../components/BottomNav.jsx';
+import { ThreeDViewer } from '../components/ThreeDViewer.jsx';
 import { useWebSocket } from '../hooks/useWebSocket.js';
 import apiClient from '../utils/apiClient.js';
 import { toast } from '../components/Toast.jsx';
@@ -40,6 +41,8 @@ export const ChatAIPage = () => {
   const [requestId, setRequestId] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [currentPlanGeometry, setCurrentPlanGeometry] = useState(null);
+  const [selectedVariantId, setSelectedVariantId] = useState(null);
 
   const handleWebSocketMessage = (data) => {
     console.log('WebSocket message received:', data);
@@ -56,6 +59,29 @@ export const ChatAIPage = () => {
       // Load variant details
       if (data.data.variant_id) {
         apiClient.get(`/variants/${data.data.variant_id}`).then((response) => {
+          const variant = response.data;
+          
+          // Debug: Log full variant structure
+          console.log(`\n📦 Variant ${data.data.index}/${data.data.total} loaded from API:`);
+          console.log(`   ID: ${variant.id}`);
+          console.log(`   Has planGeometry: ${!!variant.planGeometry}`);
+          console.log(`   planGeometry type: ${typeof variant.planGeometry}`);
+          console.log(`   planGeometry value:`, variant.planGeometry);
+          
+          // Log bearing wall information when variant is loaded
+          if (variant.planGeometry?.geometry?.walls) {
+            const walls = variant.planGeometry.geometry.walls;
+            const bearingWalls = walls.filter(w => w.isBearing);
+            console.log(`   🚫 Bearing walls: ${bearingWalls.length} (cannot modify)`);
+            console.log(`   ✅ Non-bearing walls: ${walls.length - bearingWalls.length} (can modify)`);
+          } else {
+            console.warn(`   ⚠️  No planGeometry.geometry.walls found in variant`);
+            console.log(`   Variant keys:`, Object.keys(variant));
+            if (variant.planGeometry) {
+              console.log(`   planGeometry structure:`, JSON.stringify(variant.planGeometry, null, 2));
+            }
+          }
+          
           setVariants((prev) => {
             // Avoid duplicates
             if (prev.find(v => v.id === response.data.id)) {
@@ -214,6 +240,47 @@ export const ChatAIPage = () => {
     handleSend(message);
   };
 
+  const handleVariantClick = (variant) => {
+    console.log('\n========== VARIANT SELECTED ==========');
+    console.log('📋 Variant ID:', variant.id);
+    console.log('📝 Description:', variant.description);
+    console.log('📊 Approval probability:', `${Math.round(variant.approvalProbability * 100)}%`);
+    console.log('\n🔍 Debugging variant object:');
+    console.log('   - Has planGeometry property:', 'planGeometry' in variant);
+    console.log('   - planGeometry value:', variant.planGeometry);
+    console.log('   - planGeometry type:', typeof variant.planGeometry);
+    console.log('   - All variant keys:', Object.keys(variant));
+    
+    setSelectedVariantId(variant.id);
+    if (variant.planGeometry) {
+      const walls = variant.planGeometry?.geometry?.walls || [];
+      const bearingWalls = walls.filter(w => w.isBearing).length;
+      const nonBearingWalls = walls.filter(w => !w.isBearing).length;
+      
+      console.log('\n🏗️  Plan Geometry:');
+      console.log(`   - Total walls: ${walls.length}`);
+      console.log(`   - 🚫 Bearing walls (CANNOT CHANGE): ${bearingWalls}`);
+      console.log(`   - ✅ Non-bearing walls (CAN CHANGE): ${nonBearingWalls}`);
+      
+      if (bearingWalls > 0) {
+        console.log('\n⚠️  WARNING: This variant includes bearing walls that cannot be modified!');
+        walls.filter(w => w.isBearing).forEach((wall, idx) => {
+          console.log(`   Bearing wall ${idx + 1}: from (${wall.start.x}, ${wall.start.y}) to (${wall.end.x}, ${wall.end.y})`);
+        });
+      }
+      
+      console.log('\n🎨 Updating 3D view with variant geometry...');
+      setCurrentPlanGeometry(variant.planGeometry);
+    } else {
+      // Fallback: keep previous geometry or show message
+      console.warn('⚠️  No geometry available for variant:', variant.id);
+      console.log('   Variant object structure:', JSON.stringify(variant, null, 2));
+      console.log('   Falling back to image-based rendering');
+      setCurrentPlanGeometry(null);
+    }
+    console.log('=======================================\n');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 flex flex-col">
@@ -224,6 +291,20 @@ export const ChatAIPage = () => {
           <ChatInput onSend={handleSend} disabled={processing} />
         </div>
 
+        {/* 3D Viewer Section */}
+        {currentPlanGeometry && (
+          <div className="mt-8 bg-white rounded-lg shadow-md p-4">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">3D View</h2>
+            <div className="h-96 bg-gray-100 rounded">
+              <ThreeDViewer 
+                variant={variants.find(v => v.id === selectedVariantId) || null}
+                planGeometry={currentPlanGeometry}
+                viewMode="3d"
+              />
+            </div>
+          </div>
+        )}
+
         {variants.length > 0 && (
           <div className="mt-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">Generated Variants</h2>
@@ -233,6 +314,7 @@ export const ChatAIPage = () => {
                   key={variant.id} 
                   variant={variant} 
                   onContinueConversation={handleContinueConversation}
+                  onClick={() => handleVariantClick(variant)}
                 />
               ))}
             </div>
