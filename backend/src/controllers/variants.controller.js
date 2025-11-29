@@ -35,4 +35,18 @@ export const getPublicVariant = async (request, reply) => {
   }
 };
 
+export const get3DModelModifications = async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const modifications = await variantsService.get3DModelModifications(id);
+    return reply.send(modifications);
+  } catch (error) {
+    if (error.message === 'Variant not found') {
+      return reply.code(404).send({ error: error.message });
+    }
+    request.log.error(error);
+    return reply.code(500).send({ error: 'Failed to get 3D model modifications' });
+  }
+};
+
 

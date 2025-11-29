@@ -1,6 +1,5 @@
 import { createAiRequest, streamAiResponse, getAiRequest, getChatHistory } from '../controllers/ai.controller.js';
-import { getVariant } from '../controllers/variants.controller.js';
-import { getPublicVariant } from '../controllers/variants.controller.js';
+import { getVariant, getPublicVariant, get3DModelModifications } from '../controllers/variants.controller.js';
 import { schemas } from '../config/schemas.js';
 
 export default async function (fastify) {
@@ -186,6 +185,47 @@ export default async function (fastify) {
       },
     },
   }, getPublicVariant);
+
+  // Get 3D model modifications for variant
+  fastify.get('/variants/:id/3d-modifications', {
+    schema: {
+      tags: ['Variants'],
+      description: 'Get 3D model modifications for variant',
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Variant ID',
+          },
+        },
+      },
+      response: {
+        200: {
+          description: '3D model modifications retrieved successfully',
+          type: 'object',
+          properties: {
+            modifications: {
+              type: 'array',
+              items: {
+                type: 'object',
+              },
+            },
+            instructions: { type: 'string' },
+          },
+        },
+        404: {
+          description: 'Variant not found',
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, get3DModelModifications);
 }
 
 
