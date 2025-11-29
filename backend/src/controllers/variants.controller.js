@@ -1,0 +1,31 @@
+import * as variantsService from '../services/variants.service.js';
+
+export const getVariant = async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const variant = await variantsService.getVariant(id);
+    return reply.send(variant);
+  } catch (error) {
+    if (error.message === 'Variant not found') {
+      return reply.code(404).send({ error: error.message });
+    }
+    request.log.error(error);
+    return reply.code(500).send({ error: 'Internal server error' });
+  }
+};
+
+export const getPublicVariant = async (request, reply) => {
+  try {
+    const { variant_id } = request.params;
+    const variant = await variantsService.getPublicVariant(variant_id);
+    return reply.send(variant);
+  } catch (error) {
+    if (error.message === 'Variant not found') {
+      return reply.code(404).send({ error: error.message });
+    }
+    request.log.error(error);
+    return reply.code(500).send({ error: 'Internal server error' });
+  }
+};
+
+

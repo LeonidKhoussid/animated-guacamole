@@ -1,0 +1,217 @@
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.jsx';
+
+export const HomePage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // Extract first name from full name
+  const firstName = user?.fullName?.split(' ')[0] || 'Пользователь';
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white pb-20">
+      {/* Header */}
+      <div className="bg-gradient-to-b from-blue-100 to-white px-4 pt-4 pb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            {/* TODO: Replace with actual user profile image URL */}
+            <img
+              src="https://via.placeholder.com/50" // IMAGE_URL: User profile picture
+              alt="Profile"
+              className="w-12 h-12 rounded-full object-cover"
+            />
+            <div>
+              <p className="text-sm text-gray-600">Добрый день!</p>
+              <p className="font-bold text-lg text-gray-900">{firstName}</p>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
+      {/* Main Banner */}
+      <div className="px-4 mt-4">
+        <div className="bg-gradient-to-br from-[#2593F4] to-blue-700 rounded-2xl relative overflow-visible flex items-center">
+          <div className="relative z-10 p-4 flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white mb-2">
+              Планируйте ремонт безопасно и наглядно
+            </h1>
+            <p className="text-white text-xs mb-4 opacity-90">
+              Загрузите план квартиры и получите варианты перепланировки и дизайна с проверкой по нормам.
+            </p>
+            <button
+              onClick={() => navigate('/upload')}
+              className="bg-white text-blue-600 font-semibold px-4 py-2 rounded-xl hover:bg-blue-50 transition-colors text-sm"
+            >
+              Загрузить план
+            </button>
+          </div>
+          {/* TODO: Replace with actual 3D apartment rendering image URL */}
+          <div className="relative flex-shrink-0 -mr-8">
+            <img
+              src="https://storage.yandexcloud.net/optika/plan_ai/heroPgHouse1.png" // IMAGE_URL: 3D isometric apartment layout (right side of banner)
+              alt="Apartment layout"
+              className="h-50 w-auto object-contain"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Feature Section */}
+      <div className="px-4 mt-8">
+        <div className="grid grid-cols-2 gap-4">
+          {/* Top Left - Text Content */}
+          <div className="flex flex-col gap-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">
+              С помощью нашего сервиса вы можете
+            </h2>
+            <p className="text-sm text-gray-600">
+              Получите варианты вашего дома мечты прямо сейчас!
+            </p>
+          </div>
+
+          {/* Top Right - AI Replanning Card */}
+          <div className="bg-gradient-to-br from-[#2593F4] to-blue-600 rounded-xl p-4 relative overflow-visible">
+            {/* TODO: Replace with actual architectural blueprint overlay image URL */}
+            <img
+              src="https://storage.yandexcloud.net/optika/plan_ai/heroPgHouse2.png" // IMAGE_URL: Architectural blueprint overlay background
+              alt="Blueprint"
+              className="absolute right-3 top-0 h-full w-auto object-contain"
+              style={{ transform: 'translateX(15%)' }}
+            />
+            <div className="relative z-10">
+              <h3 className="font-bold text-white text-base mb-1">Перепланировка AI</h3>
+              <p className="text-white text-xs opacity-90">
+                Опишите изменения — получите законный вариант
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom Left - 3D View Card */}
+          <div className="bg-blue-500 rounded-xl p-4 relative overflow-visible">
+            {/* TODO: Replace with actual modern living room image URL */}
+            <img
+              src="https://storage.yandexcloud.net/optika/plan_ai/heroPgHouse3.png" // IMAGE_URL: Modern living room background
+              alt="3D View"
+              className="absolute left-0 top-0 h-full w-auto object-contain"
+              style={{ transform: 'translateX(15%)',   marginLeft: '-12px' }}
+            />
+            <div className="relative z-10">
+              <h3 className="font-bold text-white text-base mb-1">3D-просмотр</h3>
+              <p className="text-white text-xs opacity-90">
+                Посмотрите квартиру сверху и от первого лица
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom Right - Design AI Card */}
+          <div className="bg-gray-50 rounded-xl p-4 relative overflow-visible">
+            {/* TODO: Replace with actual modern interior with furniture image URL */}
+            <img
+              src="https://storage.yandexcloud.net/optika/plan_ai/heroPgHouse4.png" // IMAGE_URL: Modern interior with furniture background
+              alt="Design AI"
+              className="absolute right-0 top-0 h-full w-auto object-contain opacity-20"
+              style={{ transform: 'translateX(15%)' }}
+            />
+            <div className="relative z-10">
+              <h3 className="font-bold text-gray-900 text-base mb-1">Дизайн AI</h3>
+              <p className="text-gray-700 text-xs opacity-90">
+                Сгенерируем расстановку мебели и стиль
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sharing Banner */}
+      <div className="px-4 mt-6">
+        <div className="bg-blue-100 rounded-2xl p-6 relative overflow-hidden">
+          {/* TODO: Replace with actual 3D isometric apartment layout image URL */}
+          <img
+            src="https://storage.yandexcloud.net/optika/plan_ai/heroPgHouse5.png" // IMAGE_URL: 3D isometric apartment layout (left side)
+            alt="Apartment layout"
+            className="absolute left-0 top-0 h-full w-1/3 object-cover opacity-30"
+          />
+          <div className="relative z-10 ml-auto" style={{ width: '65%' }}>
+            <h3 className="font-bold text-gray-900 text-lg mb-3">
+              Поделитесь своими результатами планировки квартиры с другими!
+            </h3>
+            <button
+              onClick={() => navigate('/favorites')}
+              className="bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors w-full"
+            >
+              В избранное
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Navigation Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-blue-600 rounded-t-3xl px-4 py-3">
+        <div className="flex justify-around items-center max-w-md mx-auto">
+          {/* Home - Active */}
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex flex-col items-center space-y-1"
+          >
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center">
+              {/* TODO: Replace with actual home icon URL */}
+              <img
+                src="https://via.placeholder.com/24" // IMAGE_URL: Home icon
+                alt="Home"
+                className="w-6 h-6"
+              />
+            </div>
+          </button>
+
+          {/* Hashtags */}
+          <button className="flex flex-col items-center space-y-1">
+            {/* TODO: Replace with actual hashtag icon URL */}
+            <img
+              src="https://via.placeholder.com/24" // IMAGE_URL: Hashtag icon
+              alt="Hashtags"
+              className="w-6 h-6 opacity-70"
+            />
+          </button>
+
+          {/* Messages */}
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex flex-col items-center space-y-1"
+          >
+            {/* TODO: Replace with actual messages icon URL */}
+            <img
+              src="https://via.placeholder.com/24" // IMAGE_URL: Messages/Chat icon
+              alt="Messages"
+              className="w-6 h-6 opacity-70"
+            />
+          </button>
+
+          {/* Favorites */}
+          <button
+            onClick={() => navigate('/favorites')}
+            className="flex flex-col items-center space-y-1"
+          >
+            {/* TODO: Replace with actual favorites icon URL */}
+            <img
+              src="https://via.placeholder.com/24" // IMAGE_URL: Heart/Favorites icon
+              alt="Favorites"
+              className="w-6 h-6 opacity-70"
+            />
+          </button>
+
+          {/* Profile */}
+          <button className="flex flex-col items-center space-y-1">
+            {/* TODO: Replace with actual profile icon URL */}
+            <img
+              src="https://via.placeholder.com/24" // IMAGE_URL: Profile/Person icon
+              alt="Profile"
+              className="w-6 h-6 opacity-70"
+            />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+

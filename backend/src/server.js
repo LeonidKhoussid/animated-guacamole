@@ -1,0 +1,78 @@
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
+import jwt from '@fastify/jwt';
+import websocket from '@fastify/websocket';
+import staticFiles from '@fastify/static';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const fastify = Fastify({
+  logger: true,
+});
+
+// Register plugins
+fastify.register(cors, {
+  origin: true,
+  credentials: true,
+});
+
+fastify.register(multipart, {
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+});
+
+fastify.register(jwt, {
+  secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+});
+
+fastify.register(websocket);
+
+// Serve static files (uploaded plans)
+fastify.register(staticFiles, {
+  root: join(__dirname, '../uploads'),
+  prefix: '/uploads/',
+});
+
+// Register routes
+import authRoutes from './routes/auth.routes.js';
+import plansRoutes from './routes/plans.routes.js';
+import aiRoutes from './routes/ai.routes.js';
+import favoritesRoutes from './routes/favorites.routes.js';
+import applicationsRoutes from './routes/applications.routes.js';
+import adminRoutes from './routes/admin.routes.js';
+
+fastify.register(authRoutes);
+fastify.register(plansRoutes);
+fastify.register(aiRoutes);
+fastify.register(favoritesRoutes);
+fastify.register(applicationsRoutes);
+fastify.register(adminRoutes);
+
+// Health check
+fastify.get('/health', async (request, reply) => {
+  return { status: 'ok' };
+});
+
+// Start server
+const start = async () => {
+  try {
+    const port = process.env.PORT || 3001;
+    await fastify.listen({ port, host: '0.0.0.0' });
+    console.log(`Server listening on port ${port}`);
+  } catch (err) {
+    fastify.log.error(err);
+    process.exit(1);
+  }
+};
+
+start();
+
