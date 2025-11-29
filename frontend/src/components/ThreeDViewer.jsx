@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import apiClient from '../utils/apiClient.js';
 
 export const ThreeDViewer = ({ variant, viewMode = '3d' }) => {
   const containerRef = useRef(null);
@@ -7,6 +8,8 @@ export const ThreeDViewer = ({ variant, viewMode = '3d' }) => {
   const rendererRef = useRef(null);
   const cameraRef = useRef(null);
   const animationFrameRef = useRef(null);
+  const wallGroupsRef = useRef({ external: null, internal: null });
+  const wallsDataRef = useRef({ external: [], internal: [] });
   const [isLoading, setIsLoading] = useState(true);
 
   // Debug: log variant structure
@@ -418,17 +421,27 @@ export const ThreeDViewer = ({ variant, viewMode = '3d' }) => {
     
     const boxGeometry = new THREE.BoxGeometry(pixelSize, wallHeight, pixelSize);
     
+    // Store wall data for modifications
+    wallsDataRef.current = {
+      external: externalWalls.map(w => ({ ...w, pixelSize })),
+      internal: internalWalls.map(w => ({ ...w, pixelSize })),
+    };
+    
     externalWalls.forEach(wall => {
       const wallMesh = new THREE.Mesh(boxGeometry, externalMaterial);
       wallMesh.position.set(wall.x, 1.5, wall.z);
+      wallMesh.userData = { type: 'external', originalPosition: { x: wall.x, z: wall.z } };
       externalGroup.add(wallMesh);
     });
     
     internalWalls.forEach(wall => {
       const wallMesh = new THREE.Mesh(boxGeometry, internalMaterial);
       wallMesh.position.set(wall.x, 1.5, wall.z);
+      wallMesh.userData = { type: 'internal', originalPosition: { x: wall.x, z: wall.z } };
       internalGroup.add(wallMesh);
     });
+    
+    wallGroupsRef.current = { external: externalGroup, internal: internalGroup };
     
     if (externalWalls.length > 0) {
       scene.add(externalGroup);
@@ -436,6 +449,188 @@ export const ThreeDViewer = ({ variant, viewMode = '3d' }) => {
     if (internalWalls.length > 0) {
       scene.add(internalGroup);
     }
+    
+    // Fetch and apply modifications after walls are created
+    // Add a small delay to ensure walls are fully rendered
+    setTimeout(() => {
+      if (variant?.id) {
+        console.log('Starting to fetch modifications for variant:', variant.id);
+        fetchAndApplyModifications(variant.id, scene);
+      } else {
+        console.warn('No variant ID available for modifications');
+      }
+    }, 500);
+  };
+
+  const fetchAndApplyModifications = async (variantId, scene) => {
+    try {
+      console.log('Fetching 3D model modifications for variant:', variantId);
+      const response = await apiClient.get(`/variants/${variantId}/3d-modifications`);
+      const { modifications, instructions } = response.data;
+      
+      console.log('Got modifications:', modifications);
+      console.log('Instructions:', instructions);
+      console.log('Full response:', response.data);
+      
+      if (modifications && modifications.length > 0) {
+        applyModifications(modifications, scene);
+      } else {
+        // Fallback: apply modifications based on variant description
+        console.log('No modifications from API, using fallback based on variant description');
+        applyFallbackModifications(variant, scene);
+      }
+    } catch (error) {
+      console.error('Failed to fetch modifications:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      // Fallback: apply modifications based on variant description
+      console.log('Using fallback modifications based on variant description');
+      applyFallbackModifications(variant, scene);
+    }
+  };
+
+  const applyFallbackModifications = (variant, scene) => {
+    if (!variant) return;
+    
+    const description = (variant.description || '').toLowerCase();
+    const internalGroup = wallGroupsRef.current.internal;
+    
+    if (!internalGroup || internalGroup.children.length === 0) {
+      console.log('No internal walls to modify');
+      return;
+    }
+
+    console.log('Applying fallback modifications based on description:', description);
+    
+    // Check for keywords that suggest wall removal
+    const mergeKeywords = ['объедин', 'удал', 'снос', 'разруш', 'убрать', 'демонтаж', 'расшир', 'увелич'];
+    const shouldRemoveWalls = mergeKeywords.some(keyword => description.includes(keyword));
+    
+    if (shouldRemoveWalls) {
+      // Remove some internal walls (e.g., remove 30-50% of them)
+      const wallsToRemove = Math.floor(internalGroup.children.length * 0.4);
+      const indicesToRemove = [];
+      
+      // Select walls to remove (prefer middle walls, not edge walls)
+      for (let i = 0; i < wallsToRemove && i < internalGroup.children.length; i++) {
+        const index = Math.floor(internalGroup.children.length * 0.3) + i;
+        if (index < internalGroup.children.length) {
+          indicesToRemove.push(index);
+        }
+      }
+      
+      // Remove in reverse order
+      indicesToRemove.reverse().forEach(index => {
+        const wallMesh = internalGroup.children[index];
+        if (wallMesh) {
+          internalGroup.remove(wallMesh);
+          wallMesh.geometry.dispose();
+          wallMesh.material.dispose();
+        }
+      });
+      
+      console.log(`Removed ${indicesToRemove.length} internal walls based on variant description`);
+    }
+  };
+
+  const applyModifications = (modifications, scene) => {
+    const externalGroup = wallGroupsRef.current.external;
+    const internalGroup = wallGroupsRef.current.internal;
+    
+    if (!externalGroup && !internalGroup) {
+      console.warn('Wall groups not found, cannot apply modifications');
+      return;
+    }
+
+    modifications.forEach(mod => {
+      console.log('Applying modification:', mod);
+      
+      switch (mod.type) {
+        case 'remove_wall':
+          if (mod.wallType === 'internal' && internalGroup) {
+            // Find and remove walls near the specified position
+            const wallsToRemove = [];
+            
+            if (mod.position && mod.position.x !== undefined && mod.position.z !== undefined) {
+              // Remove walls near specific position
+              internalGroup.children.forEach((wallMesh, index) => {
+                const pos = wallMesh.userData.originalPosition;
+                const distance = Math.sqrt(
+                  Math.pow(pos.x - mod.position.x, 2) + 
+                  Math.pow(pos.z - mod.position.z, 2)
+                );
+                
+                // Remove walls within 3 units of the position
+                if (distance < 3) {
+                  wallsToRemove.push(index);
+                }
+              });
+            } else {
+              // No position specified - remove a percentage of internal walls based on description
+              const description = (mod.description || '').toLowerCase();
+              let removePercentage = 0.3; // Default: remove 30%
+              
+              if (description.includes('объедин') || description.includes('удал')) {
+                removePercentage = 0.5; // Remove 50% for merging
+              }
+              
+              const countToRemove = Math.floor(internalGroup.children.length * removePercentage);
+              // Remove walls from middle section (not edges)
+              const startIndex = Math.floor(internalGroup.children.length * 0.25);
+              for (let i = 0; i < countToRemove && (startIndex + i) < internalGroup.children.length; i++) {
+                wallsToRemove.push(startIndex + i);
+              }
+            }
+            
+            // Remove in reverse order to maintain indices
+            wallsToRemove.reverse().forEach(index => {
+              const wallMesh = internalGroup.children[index];
+              if (wallMesh) {
+                internalGroup.remove(wallMesh);
+                wallMesh.geometry.dispose();
+                wallMesh.material.dispose();
+              }
+            });
+            
+            console.log(`Removed ${wallsToRemove.length} internal walls (total was ${internalGroup.children.length + wallsToRemove.length})`);
+          }
+          break;
+          
+        case 'change_color':
+          const color = new THREE.Color(mod.color || 0x00ff00);
+          if (mod.wallType === 'internal' && internalGroup) {
+            internalGroup.children.forEach(wallMesh => {
+              wallMesh.material.color.set(color);
+            });
+          } else if (mod.wallType === 'external' && externalGroup) {
+            externalGroup.children.forEach(wallMesh => {
+              wallMesh.material.color.set(color);
+            });
+          }
+          break;
+          
+        case 'add_wall':
+          if (mod.position && mod.wallType === 'internal' && internalGroup) {
+            const pixelSize = wallsDataRef.current.internal[0]?.pixelSize || 0.067;
+            const wallHeight = 3;
+            const boxGeometry = new THREE.BoxGeometry(pixelSize, wallHeight, pixelSize);
+            const material = new THREE.MeshPhongMaterial({ 
+              color: mod.color ? new THREE.Color(mod.color) : 0x00ff00,
+              specular: 0x111111,
+              shininess: 30
+            });
+            
+            const wallMesh = new THREE.Mesh(boxGeometry, material);
+            wallMesh.position.set(mod.position.x || 0, 1.5, mod.position.z || 0);
+            wallMesh.userData = { type: 'internal', originalPosition: { x: mod.position.x || 0, z: mod.position.z || 0 } };
+            internalGroup.add(wallMesh);
+            console.log('Added new internal wall at:', mod.position);
+          }
+          break;
+          
+        default:
+          console.warn('Unknown modification type:', mod.type);
+      }
+    });
   };
 
   const isBoundaryPixel = (wallMap, width, height, x, y) => {
