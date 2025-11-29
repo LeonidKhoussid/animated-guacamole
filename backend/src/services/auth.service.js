@@ -1,8 +1,12 @@
 import prisma from '../models/prisma.js';
 import { generateToken, generateAdminToken } from '../utils/jwt.js';
 import bcrypt from 'bcryptjs';
+import { ensureUTF8Encoding } from '../models/prisma.js';
 
 export const registerUser = async (fullName, phone, password) => {
+  // Ensure UTF-8 encoding
+  await ensureUTF8Encoding();
+  
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
     where: { phone },
@@ -38,19 +42,33 @@ export const registerUser = async (fullName, phone, password) => {
 };
 
 export const loginUser = async (phone, password) => {
-  const user = await prisma.user.findUnique({
+  // Ensure UTF-8 encoding
+  await ensureUTF8Encoding();
+  
+  let user = await prisma.user.findUnique({
     where: { phone },
   });
 
+  // Auto-register user if they don't exist (since password is optional)
   if (!user) {
-    throw new Error('Invalid phone number or password');
-  }
-
-  // If password is set, verify it
-  if (user.passwordHash && password) {
-    const isValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isValid) {
-      throw new Error('Invalid phone number or password');
+    // Hash password if provided
+    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+    
+    // Create user with phone number as default name
+    user = await prisma.user.create({
+      data: {
+        fullName: phone, // Use phone as default name
+        phone,
+        passwordHash,
+      },
+    });
+  } else {
+    // If password is set, verify it
+    if (user.passwordHash && password) {
+      const isValid = await bcrypt.compare(password, user.passwordHash);
+      if (!isValid) {
+        throw new Error('Invalid phone number or password');
+      }
     }
   }
 

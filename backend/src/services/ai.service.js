@@ -1,5 +1,5 @@
 import prisma from '../models/prisma.js';
-import { callGigaChat, generateImageWithGigaChat } from '../utils/gigachat.js';
+import { callGigaChat } from '../utils/gigachat.js';
 
 // Validate GigaChat credentials on startup
 if (!process.env.GIGACHAT_CLIENT_ID || !process.env.GIGACHAT_CLIENT_SECRET) {
@@ -344,39 +344,14 @@ ${userRequestEmphasis}
     
     console.log(`✓ Successfully parsed ${variants.length} variants from GigaChat response`);
 
-    // Add delay before starting image generation to avoid rate limits
-    console.log('Waiting 2 seconds before starting image generation to avoid rate limits...');
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Prepare variant data with images generated outside transaction
+    // Prepare variant data - use plan.fileUrl directly as thumbnail
     const variantDataList = [];
     const variantSlice = variants.slice(0, 5);
     for (let i = 0; i < variantSlice.length; i++) {
       const variantData = variantSlice[i];
       
-      // Add delay between API calls to avoid rate limiting (except for first call)
-      if (i > 0) {
-        const delay = 2000; // 2 seconds between calls
-        console.log(`Waiting ${delay}ms before generating next image to avoid rate limits...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-      
-      // Generate image for this variant using GigaChat (outside transaction)
-      let thumbnailUrl = null;
-      try {
-        console.log(`Generating image for variant ${i + 1}...`);
-        const imagePrompt = `${variantData.description}. ${variantData.floorPlanModifications || ''}`;
-        thumbnailUrl = await generateImageWithGigaChat(imagePrompt, plan.fileUrl);
-        
-        // If image generation failed, fallback to plan image
-        if (!thumbnailUrl) {
-          thumbnailUrl = plan.fileUrl;
-        }
-      } catch (error) {
-        console.warn(`Failed to generate image for variant ${i + 1}:`, error.message);
-        thumbnailUrl = plan.fileUrl; // Fallback to original plan
-      }
-      
+      // Use plan image directly as thumbnail (no image generation)
+      const thumbnailUrl = plan.fileUrl;
       const model3dUrl = await generate3DModelUrl(aiRequestId, plan.fileUrl, variantData.description);
 
       variantDataList.push({
@@ -387,12 +362,17 @@ ${userRequestEmphasis}
         thumbnailUrl,
         model3dUrl,
       });
-      console.log(`✓ Prepared variant ${i + 1} with ${thumbnailUrl ? 'generated' : 'fallback'} image`);
+      console.log(`✓ Prepared variant ${i + 1} with plan image`);
     }
 
     // Create variants in database in a short transaction (images already generated)
+    // First, ensure UTF-8 encoding is set at the connection level
+    await prisma.$executeRawUnsafe(`SET client_encoding = 'UTF8'`);
+    
     const createdVariants = await prisma.$transaction(
       async (tx) => {
+        // Ensure UTF-8 encoding for this transaction
+        await tx.$executeRawUnsafe(`SET client_encoding = 'UTF8'`);
         const created = [];
         for (const variantData of variantDataList) {
           const variant = await tx.variant.create({
@@ -421,6 +401,24 @@ ${userRequestEmphasis}
 };
 
 const generateMockVariants = async (aiRequestId) => {
+  // Get the plan for this AI request to use its fileUrl
+  const aiRequest = await prisma.aiRequest.findUnique({
+    where: { id: aiRequestId },
+    include: {
+      plan: {
+        select: {
+          fileUrl: true,
+        },
+      },
+    },
+  });
+
+  if (!aiRequest || !aiRequest.plan) {
+    throw new Error('AI request or plan not found');
+  }
+
+  const planFileUrl = aiRequest.plan.fileUrl;
+
   const MOCK_VARIANTS = [
     {
       description: 'Вариант 1: Расширение гостиной за счет объединения с балконом',
@@ -439,8 +437,13 @@ const generateMockVariants = async (aiRequestId) => {
     },
   ];
 
+  // Ensure UTF-8 encoding is set before transaction
+  await prisma.$executeRawUnsafe(`SET client_encoding = 'UTF8'`);
+  
   const variants = await prisma.$transaction(
     async (tx) => {
+      // Ensure UTF-8 encoding for this transaction
+      await tx.$executeRawUnsafe(`SET client_encoding = 'UTF8'`);
       const createdVariants = [];
       for (const mockVariant of MOCK_VARIANTS) {
         const variant = await tx.variant.create({
@@ -449,7 +452,7 @@ const generateMockVariants = async (aiRequestId) => {
             description: mockVariant.description,
             normativeExplanation: mockVariant.normativeExplanation,
             approvalProbability: mockVariant.approvalProbability,
-            thumbnailUrl: null,
+            thumbnailUrl: planFileUrl, // Use plan fileUrl
             model3dUrl: null,
           },
         });

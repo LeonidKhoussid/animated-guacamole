@@ -1,6 +1,25 @@
-import { uploadPlan, getPlan } from '../controllers/plans.controller.js';
+import { uploadPlan, getPlan, proxyImage } from '../controllers/plans.controller.js';
 
 export default async function (fastify) {
+  // Proxy endpoint for images (no auth required, but validates URL)
+  fastify.get('/plans/proxy', {
+    schema: {
+      tags: ['Plans'],
+      description: 'Proxy image from S3 with CORS headers',
+      querystring: {
+        type: 'object',
+        required: ['url'],
+        properties: {
+          url: {
+            type: 'string',
+            format: 'uri',
+            description: 'Image URL to proxy',
+          },
+        },
+      },
+    },
+  }, proxyImage);
+
   fastify.post('/plans/upload', {
     schema: {
       tags: ['Plans'],

@@ -7,7 +7,7 @@ const prisma = new PrismaClient({
 // Helper function to ensure UTF8 encoding is set
 export const ensureUTF8Encoding = async () => {
   try {
-    await prisma.$executeRawUnsafe(`SET client_encoding TO 'UTF8'`);
+    await prisma.$executeRawUnsafe(`SET client_encoding = 'UTF8'`);
     return true;
   } catch (err) {
     console.warn('Failed to set UTF8 encoding:', err.message);

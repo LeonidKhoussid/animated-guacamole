@@ -5,8 +5,10 @@
 ### Database
 
 ```env
-DATABASE_URL=postgresql://postgres@localhost:5432/plan_ai?schema=public
+DATABASE_URL=postgresql://postgres@localhost:5432/plan_ai?schema=public&client_encoding=UTF8
 ```
+
+**Important:** The `client_encoding=UTF8` parameter ensures proper handling of Cyrillic (Russian) characters in the database.
 
 ### Authentication
 

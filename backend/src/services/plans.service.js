@@ -2,6 +2,15 @@ import prisma from '../models/prisma.js';
 import { saveFile, generateFilename, validateFileType, getFileUrl } from '../utils/fileStorage.js';
 
 export const uploadPlan = async (userId, file) => {
+  // Check if user exists
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found. Please log out and log in again.');
+  }
+
   // Validate file type
   if (!validateFileType(file.mimetype)) {
     throw new Error('Invalid file type. Only JPEG, PNG, and PDF are allowed.');

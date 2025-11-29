@@ -14,8 +14,8 @@ export const register = async (request, reply) => {
     if (error.message === 'User with this phone number already exists') {
       return reply.code(409).send({ error: error.message });
     }
-    request.log.error(error);
-    return reply.code(500).send({ error: 'Internal server error' });
+    request.log.error('Registration error:', error);
+    return reply.code(500).send({ error: error.message || 'Internal server error' });
   }
 };
 
@@ -33,8 +33,8 @@ export const login = async (request, reply) => {
     if (error.message.includes('Invalid')) {
       return reply.code(401).send({ error: error.message });
     }
-    request.log.error(error);
-    return reply.code(500).send({ error: 'Internal server error' });
+    request.log.error('Login error:', error);
+    return reply.code(500).send({ error: error.message || 'Internal server error' });
   }
 };
 
