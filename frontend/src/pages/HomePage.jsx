@@ -10,10 +10,10 @@ export const HomePage = () => {
   const firstName = user?.fullName?.split(' ')[0] || 'Пользователь';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white pb-20">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white pb-20 overflow-x-hidden">
       {/* Header */}
       <div className="bg-gradient-to-b from-blue-100 to-white px-4 pt-4 pb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-3">
             {/* TODO: Replace with actual user profile image URL */}
             <img
@@ -28,10 +28,7 @@ export const HomePage = () => {
           </div>
           
         </div>
-      </div>
 
-      {/* Main Banner */}
-      <div className="px-4 mt-4">
         <div className="bg-gradient-to-br from-[#2593F4] to-blue-700 rounded-2xl relative overflow-visible flex items-center">
           <div className="relative z-10 p-4 flex-1 min-w-0">
             <h1 className="text-lg font-bold text-white mb-2">

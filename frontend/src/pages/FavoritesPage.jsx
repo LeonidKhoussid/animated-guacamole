@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { VariantCard } from '../components/VariantCard.jsx';
+import { BottomNav } from '../components/BottomNav.jsx';
 import apiClient from '../utils/apiClient.js';
 import { toast } from '../components/Toast.jsx';
 
@@ -23,7 +24,7 @@ export const FavoritesPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Favorites</h1>
         
@@ -39,6 +40,7 @@ export const FavoritesPage = () => {
           </div>
         )}
       </div>
+      <BottomNav />
     </div>
   );
 };

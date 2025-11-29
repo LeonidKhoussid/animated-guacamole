@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ChatMessages } from '../components/ChatMessages.jsx';
 import { ChatInput } from '../components/ChatInput.jsx';
 import { VariantCard } from '../components/VariantCard.jsx';
+import { BottomNav } from '../components/BottomNav.jsx';
 import { useWebSocket } from '../hooks/useWebSocket.js';
 import apiClient from '../utils/apiClient.js';
 import { toast } from '../components/Toast.jsx';
@@ -214,7 +215,7 @@ export const ChatAIPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 flex flex-col">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">AI Chat</h1>
         
@@ -238,6 +239,7 @@ export const ChatAIPage = () => {
           </div>
         )}
       </div>
+      <BottomNav />
     </div>
   );
 };

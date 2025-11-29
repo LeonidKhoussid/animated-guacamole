@@ -11,6 +11,7 @@ import { UploadPlanPage } from './pages/UploadPlanPage.jsx';
 import { ChatAIPage } from './pages/ChatAIPage.jsx';
 import { VariantViewerPage } from './pages/VariantViewerPage.jsx';
 import { FavoritesPage } from './pages/FavoritesPage.jsx';
+import { ProfilePage } from './pages/ProfilePage.jsx';
 import { SharePage } from './pages/SharePage.jsx';
 import { SubmitApplicationPage } from './pages/SubmitApplicationPage.jsx';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage.jsx';
@@ -41,19 +42,20 @@ function AppContent() {
   return (
     <div className="flex flex-col min-h-screen">
       <Routes>
-        <Route path="/register" element={<><Navbar /><main className="flex-1"><RegisterPage /></main><Footer /></>} />
-        <Route path="/login" element={<><Navbar /><main className="flex-1"><LoginPage /></main><Footer /></>} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/share/:variantId" element={<><Navbar /><main className="flex-1"><SharePage /></main><Footer /></>} />
         
-        {/* HomePage - mobile design with its own navigation, no Navbar/Footer */}
+        {/* Pages with BottomNav - mobile design, no Navbar/Footer */}
         <Route path="/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+        <Route path="/chat/:planId" element={<ProtectedRoute><ChatAIPage /></ProtectedRoute>} />
+        <Route path="/favorites" element={<ProtectedRoute><FavoritesPage /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         
         {/* Other pages with Navbar and Footer */}
         <Route path="/dashboard" element={<ProtectedRoute><><Navbar /><main className="flex-1"><DashboardPage /></main><Footer /></></ProtectedRoute>} />
         <Route path="/upload" element={<ProtectedRoute><><Navbar /><main className="flex-1"><UploadPlanPage /></main><Footer /></></ProtectedRoute>} />
-        <Route path="/chat/:planId" element={<ProtectedRoute><><Navbar /><main className="flex-1"><ChatAIPage /></main><Footer /></></ProtectedRoute>} />
         <Route path="/variant/:id" element={<ProtectedRoute><><Navbar /><main className="flex-1"><VariantViewerPage /></main><Footer /></></ProtectedRoute>} />
-        <Route path="/favorites" element={<ProtectedRoute><><Navbar /><main className="flex-1"><FavoritesPage /></main><Footer /></></ProtectedRoute>} />
         <Route path="/submit/:variantId" element={<ProtectedRoute><><Navbar /><main className="flex-1"><SubmitApplicationPage /></main><Footer /></></ProtectedRoute>} />
         
         <Route path="/admin/login" element={<><Navbar /><main className="flex-1"><AdminLoginPage /></main><Footer /></>} />
