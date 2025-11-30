@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://i.slow.pics/WBmWYYso.png" alt="PlanAI Logo" width="400"/>
+  <img src="https://i.slow.pics/WBmWYYso.png" alt="PlanAI Logo" width="1600"/>
 </div>
 
 # **PlanAI-ML**
