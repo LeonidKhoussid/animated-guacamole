@@ -77,6 +77,48 @@ export const ChatAIPage = () => {
             console.log(`   Has planGeometry: ${!!variant.planGeometry}`);
             console.log(`   planGeometry type: ${typeof variant.planGeometry}`);
             console.log(`   planGeometry value:`, variant.planGeometry);
+            console.log(`   Raw response.data type:`, typeof response.data);
+            console.log(
+              `   Raw response.data.planGeometry:`,
+              response.data.planGeometry
+            );
+
+            // Try to parse planGeometry if it's a string (shouldn't happen but just in case)
+            if (typeof variant.planGeometry === "string") {
+              try {
+                variant.planGeometry = JSON.parse(variant.planGeometry);
+                console.log(`   ✅ Parsed planGeometry from string`);
+              } catch (e) {
+                console.error(`   ❌ Failed to parse planGeometry string:`, e);
+              }
+            }
+
+            // Check if planGeometry is an empty object (serialization issue)
+            if (
+              variant.planGeometry &&
+              typeof variant.planGeometry === "object"
+            ) {
+              const keys = Object.keys(variant.planGeometry);
+              if (keys.length === 0) {
+                console.warn(
+                  `   ⚠️  planGeometry is an empty object - serialization issue!`
+                );
+                console.log(
+                  `   This suggests the JSON field wasn't properly serialized by Fastify`
+                );
+                // Try to get it from the raw response
+                if (
+                  response.data.planGeometry &&
+                  typeof response.data.planGeometry === "object" &&
+                  Object.keys(response.data.planGeometry).length > 0
+                ) {
+                  variant.planGeometry = response.data.planGeometry;
+                  console.log(
+                    `   ✅ Using planGeometry from raw response.data`
+                  );
+                }
+              }
+            }
 
             // Log bearing wall information when variant is loaded
             if (variant.planGeometry?.geometry?.walls) {
@@ -97,9 +139,21 @@ export const ChatAIPage = () => {
               console.log(`   Variant keys:`, Object.keys(variant));
               if (variant.planGeometry) {
                 console.log(
-                  `   planGeometry structure:`,
-                  JSON.stringify(variant.planGeometry, null, 2)
+                  `   planGeometry type: ${typeof variant.planGeometry}`
                 );
+                console.log(
+                  `   planGeometry keys:`,
+                  Object.keys(variant.planGeometry || {})
+                );
+                console.log(
+                  `   planGeometry structure:`,
+                  JSON.stringify(variant.planGeometry, null, 2).substring(
+                    0,
+                    500
+                  )
+                );
+              } else {
+                console.log(`   planGeometry is null/undefined`);
               }
             }
 
