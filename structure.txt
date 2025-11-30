@@ -2,8 +2,10 @@
 │
 ├─ .gitattributes
 ├─ .gitignore
-├─ config.py
+│
 ├─ main.py
+├─ config.py
+├─ fast_api.bash
 │
 ├─ api
 │  ├─ __init__.py
@@ -29,13 +31,10 @@
 │
 ├─ db_connector
 │  ├─ __init__.py
-│  ├─ crud (alt)
-│  │  └─ __init__.py
-│  ├─ db_schemas.py
+│  ├─ crud
 │  ├─ engine.py
-│  ├─ extractor.py
-│  ├─ models.py
-│  └─ writer.py
+│  ├─ db_schemas.py
+│  └─ db_models.py
 │
 ├─ ml_service
 │  ├─ __init__.py
