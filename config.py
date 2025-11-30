@@ -393,3 +393,15 @@ class Plan3DConfig:
         
         Path(self.input_dir).mkdir(parents=True, exist_ok=True)
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
+
+
+class BDConfig:
+    """КОНФИГ ПОДКЛЮЧЕНИЯ К БД"""
+
+    def __init__(self):
+        self.db_user = "root"
+        self.db_password = "root"
+        self.db_host = "176.113.83.14"
+        self.db_port = 5432
+        self.db_name = "ai_data"
+        self.post_url = "http://176.113.83.14:3000/ml-result"
