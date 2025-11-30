@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ChatMessages } from "../components/ChatMessages.jsx";
 import { ChatInput } from "../components/ChatInput.jsx";
 import { VariantCard } from "../components/VariantCard.jsx";
+import { VariantCarousel } from "../components/VariantCarousel.jsx";
 import { BottomNav } from "../components/BottomNav.jsx";
 import { ThreeDViewer } from "../components/ThreeDViewer.jsx";
 import { useWebSocket } from "../hooks/useWebSocket.js";
@@ -332,6 +333,15 @@ export const ChatAIPage = () => {
         </button>
       </div>
 
+      {/* Variants Carousel - Sticky at top */}
+      {variants.length > 0 && (
+        <VariantCarousel
+          variants={variants}
+          onVariantClick={handleVariantClick}
+          selectedVariantId={selectedVariantId}
+        />
+      )}
+
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-y-auto px-4 pt-2 pb-4">
         {/* Welcome Message */}
@@ -422,19 +432,6 @@ export const ChatAIPage = () => {
         {messages.length > 0 && (
           <div className="space-y-4 mb-4">
             <ChatMessages messages={messages} />
-          </div>
-        )}
-
-        {/* Variants */}
-        {variants.length > 0 && (
-          <div className="mb-4 space-y-3">
-            {variants.map((variant) => (
-              <VariantCard
-                key={variant.id}
-                variant={variant}
-                onClick={() => handleVariantClick(variant)}
-              />
-            ))}
           </div>
         )}
 
