@@ -22,8 +22,21 @@ const fastify = Fastify({
 });
 
 // Register plugins
+const defaultOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://animated-guacamole-7ahp.onrender.com',
+];
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 fastify.register(cors, {
-  origin: true,
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // allow non-browser or same-origin
+    const isAllowed = [...defaultOrigins, ...allowedOrigins].includes(origin);
+    cb(isAllowed ? null : new Error('Not allowed by CORS'), isAllowed);
+  },
   credentials: true,
 });
 
@@ -95,4 +108,3 @@ const start = async () => {
 };
 
 start();
-
