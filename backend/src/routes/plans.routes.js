@@ -2,23 +2,7 @@ import { uploadPlan, getPlan, getUserPlans, proxyAsset } from '../controllers/pl
 
 export default async function (fastify) {
   // Proxy endpoint for assets (images/models) with CORS headers
-  fastify.get('/plans/proxy', {
-    schema: {
-      tags: ['Plans'],
-      description: 'Proxy asset (image/model) from S3 with CORS headers',
-      querystring: {
-        type: 'object',
-        required: ['url'],
-        properties: {
-          url: {
-            type: 'string',
-            format: 'uri',
-            description: 'Asset URL to proxy',
-          },
-        },
-      },
-    },
-  }, proxyAsset);
+  fastify.get('/plans/proxy', { schema: { hide: true } }, proxyAsset);
 
   fastify.post('/plans/upload', {
     schema: {
@@ -122,4 +106,3 @@ export default async function (fastify) {
     },
   }, getPlan);
 }
-
