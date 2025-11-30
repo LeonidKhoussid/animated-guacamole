@@ -1,0 +1,93 @@
+﻿/PlanAI/
+│
+├─ .gitattributes
+├─ .gitignore
+├─ config.py
+├─ main.py
+│
+├─ api
+│  ├─ __init__.py
+│  ├─ routes.py
+│  └─ schemas.py
+│
+├─ bonus
+│  ├─ make_tree.ps1
+│  └─ make_tree_run.bat
+│
+├─ data
+│  ├─ diffusion
+│  │  ├─ input
+│  │  └─ output
+│  ├─ egrn_prop
+│  ├─ llm_session
+│  └─ plans
+│     ├─ bboxes
+│     ├─ croped
+│     ├─ normalized
+│     ├─ raws
+│     └─ vectors
+│
+├─ db_connector
+│  ├─ __init__.py
+│  ├─ crud (alt)
+│  │  └─ __init__.py
+│  ├─ db_schemas.py
+│  ├─ engine.py
+│  ├─ extractor.py
+│  ├─ models.py
+│  └─ writer.py
+│
+├─ ml_service
+│  ├─ __init__.py
+│  ├─ ml_pipeline.py
+│  ├─ inference_api.py
+│  │
+│  ├─ audio_processing
+│  │  ├─ __init__.py
+│  │  ├─ to_audio.py
+│  │  ├─ to_text.py
+│  │  └─ vocal_selector.py
+│  │
+│  ├─ llama_agent
+│  │  ├─ __init__.py
+│  │  ├─ agent_core
+│  │  │  ├─ __init__.py
+│  │  │  ├─ factory.py
+│  │  │  ├─ llma.py
+│  │  │  └─ run_agent.py
+│  │  ├─ dialog_manager.py
+│  │  ├─ llama_response.py
+│  │  └─ prompt_engineer.py
+│  │
+│  ├─ modeling
+│  │  ├─ __init__.py
+│  │  ├─ bbox_detector.py
+│  │  ├─ ocr.py
+│  │  ├─ segmentation.py
+│  │  └─ style_diffusion_v2.py
+│  │
+│  └─ utils
+│     ├─ __init__.py
+│     ├─ egrn_extractor.py
+│     ├─ img_norm.py
+│     ├─ plan_to_vec.py
+│     ├─ prompt_gen.py
+│     ├─ walls_3d.py
+│     └─ wrapper.py
+│
+├─ models
+│  ├─ mdx_net
+│  ├─ meta_llama
+│  ├─ mmdetection
+│  │  └─ weights
+│  ├─ nlp
+│  │  ├─ nltk_data
+│  │  ├─ spacy_model_en
+│  │  └─ spacy_model_ru
+│  ├─ silero_tts
+│  ├─ style_diffusion
+│  ├─ trocr-base-printed
+│  └─ whisper
+│
+├─ requirements.txt
+└─ structure.txt

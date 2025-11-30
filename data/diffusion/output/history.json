@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": "2025-11-29T18:57:58.745619",
+    "user_prompt": "dark blue corner sofa, large window directly behind the sofa, mounted TV on the right wall, glass-door cabinet on the left side, smooth grey walls, soft ambient lighting, clean lines, minimal decor, neutral palette, contemporary atmosphere",
+    "user_input_img": "data\\diffusion\\input\\01.jpg",
+    "user_output_img": "data\\diffusion\\output\\gen_output_img20251129_185758.jpg"
+  },
+  {
+    "timestamp": "2025-11-29T21:11:57.586773",
+    "user_prompt": "modern bedroom, platform bed, sleek nightstands, minimal lamps, built-in wardrobe, neutral bedding, floor-to-ceiling window, sheer curtains, geometric rug, wall shelves, indoor plant, abstract wall art, pendant light, clean lines, uncluttered space",
+    "user_input_img": "data\\diffusion\\input\\jslajf.png",
+    "user_output_img": "data\\diffusion\\output\\jslajf_gen.png"
+  },
+  {
+    "timestamp": "2025-11-29T21:18:12.691201",
+    "user_prompt": "modern bedroom, platform bed, sleek nightstands, minimal lamps, built-in wardrobe, neutral bedding, floor-to-ceiling window, sheer curtains, geometric rug, wall shelves, indoor plant, abstract wall art, pendant light, clean lines, uncluttered space",
+    "user_input_img": "data\\diffusion\\input\\jslajf.png",
+    "user_output_img": "data\\diffusion\\output\\jslajf_gen.png"
+  }
+]
