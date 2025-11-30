@@ -98,57 +98,13 @@
 |--------------------------|
 | Здравствуйте! К сожалению, согласно Жилищному кодексому РФ (статьи 25-29): запрещено полностью объединять жилое пространство с лоджией например, переносить батареи отопления на лоджию или организовывать тёплый водяной пол от отопительного контура дома. Штрафы и последствия: Самовольное переустройство или перепланировка — административная ответственность по КоАП РФ ст.7.21: 1) Штраф для граждан: от 2 000 до 2 500 рублей. 2) Штраф для должностных лиц: от 4 000 до 5 000 рублей. 3) Штраф для юридических лиц: от 40 000 до 50 000 рублей. Однкао разрешено: 1) Остекление лоджии или балкона, если не изменяются габариты проёмов и не нарушается фасад. 2) Утепление внутренними материалами (минеральная вата, пенополистирол, современные панели). 3) Использование электрических систем обогрева (конвекторы, инфракрасные панели, электрический «тёплый пол»).|
 ```
+---
 
+#### Генерация интерьеров (Style Diffusion)
 
-#### **Векторизация, трассировка и bbox:**
-
-<div align="center">
-  <img src="https://i.slow.pics/Bkqxc5Jh.jpg" alt="Input Plan" width="600"/>
-</div>
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <strong>Векторизованный план</strong><br>
-        <img src="https://i.slow.pics/W6qxARXs.jpg" alt="Vectorized Plan" width="500"/>
-      </td>
-      <td align="center">
-        <strong>Сегментация (BBox)</strong><br>
-        <img src="https://i.slow.pics/GylY4fNX.png" alt="BBox Segmentation" width="500"/>
-      </td>
-    </tr>
-  </table>
-</div>
-
-#### **Генерация интерьеров (Style Diffusion):**
-
-**Входное изображение:**
-<div align="center">
-  <img src="https://i.slow.pics/1jzAIWuQ.jpg" alt="Input Image" width="500"/>
-</div>
-
-**Маска сегментации (UPerNet):**
-<div align="center">
-  <img src="https://i.slow.pics/tCrLLHZK.png" alt="Segmentation Mask" width="500"/>
-</div>
-
-**Результаты:**
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <strong>Результат 01</strong><br>
-        <img src="https://i.slow.pics/5Er6cFAi.jpg" alt="Result 01" width="400"/>
-      </td>
-      <td align="center">
-        <strong>Результат 02</strong><br>
-        <img src="https://i.slow.pics/JtCm9BPU.jpg" alt="Result 02" width="400"/>
-      </td>
-    </tr>
-  </table>
-</div>
+| Input | Mask | Result 01 | Result 02 |
+|-------|------|-----------|-----------|
+| <div align="center"><img src="https://i.slow.pics/1jzAIWuQ.jpg" alt="Input Image" width="250"/></div> | <div align="center"><img src="https://i.slow.pics/tCrLLHZK.png" alt="Segmentation Mask" width="250"/></div> | <div align="center"><img src="https://i.slow.pics/5Er6cFAi.jpg" alt="Result 01" width="250"/></div> | <div align="center"><img src="https://i.slow.pics/JtCm9BPU.jpg" alt="Result 02" width="250"/></div> |
 
 ---
 
