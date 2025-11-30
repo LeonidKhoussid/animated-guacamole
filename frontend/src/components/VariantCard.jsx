@@ -1,6 +1,14 @@
 import { Link } from 'react-router-dom';
 
 export const VariantCard = ({ variant, onContinueConversation, onClick }) => {
+  if (!variant) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-4 text-gray-500 text-sm">
+        Variant unavailable.
+      </div>
+    );
+  }
+
   const handleCardClick = (e) => {
     // If onClick is provided, call it
     if (onClick) {
@@ -11,7 +19,7 @@ export const VariantCard = ({ variant, onContinueConversation, onClick }) => {
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 flex flex-col">
       <Link
-        to={`/variant/${variant.id}`}
+        to={variant.id ? `/variant/${variant.id}` : '#'}
         className="flex-1"
         onClick={handleCardClick}
       >
@@ -52,5 +60,4 @@ export const VariantCard = ({ variant, onContinueConversation, onClick }) => {
     </div>
   );
 };
-
 

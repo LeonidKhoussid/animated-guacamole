@@ -1,11 +1,11 @@
-import { uploadPlan, getPlan, getUserPlans, proxyImage } from '../controllers/plans.controller.js';
+import { uploadPlan, getPlan, getUserPlans, proxyAsset } from '../controllers/plans.controller.js';
 
 export default async function (fastify) {
-  // Proxy endpoint for images (no auth required, but validates URL)
+  // Proxy endpoint for assets (images/models) with CORS headers
   fastify.get('/plans/proxy', {
     schema: {
       tags: ['Plans'],
-      description: 'Proxy image from S3 with CORS headers',
+      description: 'Proxy asset (image/model) from S3 with CORS headers',
       querystring: {
         type: 'object',
         required: ['url'],
@@ -13,12 +13,12 @@ export default async function (fastify) {
           url: {
             type: 'string',
             format: 'uri',
-            description: 'Image URL to proxy',
+            description: 'Asset URL to proxy',
           },
         },
       },
     },
-  }, proxyImage);
+  }, proxyAsset);
 
   fastify.post('/plans/upload', {
     schema: {
@@ -122,5 +122,4 @@ export default async function (fastify) {
     },
   }, getPlan);
 }
-
 

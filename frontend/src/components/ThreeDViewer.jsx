@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import apiClient from '../utils/apiClient.js';
 
+THREE.Cache.enabled = true;
+
 export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) => {
+const ORTHO_FRUSTUM_SIZE = 18;
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
@@ -11,6 +17,27 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
   const wallGroupsRef = useRef({ external: null, internal: null });
   const wallsDataRef = useRef({ external: [], internal: [] });
   const [isLoading, setIsLoading] = useState(true);
+  const [modelWarning, setModelWarning] = useState(null);
+  const apartmentModelRef = useRef(null);
+  const modelBoundsRef = useRef(null);
+  const joystickStateRef = useRef({
+    active: false,
+    vx: 0,
+    vz: 0,
+  });
+  const [joystickPos, setJoystickPos] = useState({ x: 0, y: 0, active: false });
+  const movementStateRef = useRef({
+    forward: false,
+    back: false,
+    left: false,
+    right: false,
+    yaw: 0,
+    pitch: 0,
+    isMouseDown: false,
+    lastX: 0,
+    lastY: 0,
+  });
+  const clockRef = useRef(new THREE.Clock());
 
   // Debug: log variant structure
   useEffect(() => {
@@ -51,6 +78,16 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
     return imageUrl;
   };
 
+  // Helper for any asset (images/models) via backend proxy to bypass CORS
+  const getProxyAssetUrl = (assetUrl) => {
+    if (!assetUrl) return null;
+    if (assetUrl.startsWith('http://localhost') || assetUrl.startsWith('/plans/proxy')) {
+      return assetUrl;
+    }
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+    return `${backendUrl}/plans/proxy?url=${encodeURIComponent(assetUrl)}`;
+  };
+
   useEffect(() => {
     // Get blueprint URL from variant - try multiple paths (for fallback)
     const originalUrl = variant?.aiRequest?.plan?.fileUrl || variant?.thumbnailUrl || null;
@@ -64,15 +101,10 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
     console.log('ThreeDViewer useEffect - Has geometry:', !!geometry);
     console.log('Container ref:', !!containerRef.current);
     
+    setIsLoading(true);
+
     if (!containerRef.current) {
       console.warn('Cannot initialize viewer - missing container');
-      setIsLoading(false);
-      return;
-    }
-
-    // If no geometry and no blueprint URL, can't render
-    if (!geometry && !blueprintUrl) {
-      console.warn('Cannot initialize viewer - missing geometry and blueprint URL');
       setIsLoading(false);
       return;
     }
@@ -94,23 +126,43 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
     // Initialize camera based on view mode
     let camera;
     if (viewMode === 'top') {
+      const width = containerRef.current.clientWidth || 1;
+      const height = containerRef.current.clientHeight || 1;
+      const aspect = width / height;
+      const frustum = ORTHO_FRUSTUM_SIZE;
       camera = new THREE.OrthographicCamera(
-        -10, 10, 10, -10, 0.1, 1000
+        (-frustum * aspect) / 2,
+        (frustum * aspect) / 2,
+        frustum / 2,
+        -frustum / 2,
+        0.1,
+        2000
       );
       camera.position.set(0, 20, 0);
       camera.lookAt(0, 0, 0);
     } else if (viewMode === 'first-person') {
       camera = new THREE.PerspectiveCamera(75, containerRef.current.clientWidth / containerRef.current.clientHeight, 0.1, 1000);
-      camera.position.set(0, 1.6, 0);
+      const startPos = getFirstPersonStartPosition();
+      camera.position.set(startPos.x, startPos.y, startPos.z);
+      movementStateRef.current.yaw = 0;
+      movementStateRef.current.pitch = 0;
+      camera.rotation.set(0, 0, 0, 'YXZ');
     } else {
       camera = new THREE.PerspectiveCamera(75, containerRef.current.clientWidth / containerRef.current.clientHeight, 0.1, 1000);
-      camera.position.set(15, 10, 15);
+      camera.position.set(0, 8, 12);
       camera.lookAt(0, 0, 0);
     }
     cameraRef.current = camera;
 
     // Initialize renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // Ensure correct color space for textures (compat with older three versions)
+    if ('outputColorSpace' in renderer) {
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+    } else {
+      renderer.outputEncoding = THREE.sRGBEncoding;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.2));
     renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -122,15 +174,24 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(10, 20, 15);
     scene.add(directionalLight);
+    const helper = new THREE.GridHelper(50, 50, 0x888888, 0x444444);
+    helper.position.y = 0.01;
+    scene.add(helper);
+    const axes = new THREE.AxesHelper(2);
+    axes.position.y = 0.01;
+    scene.add(axes);
 
-    // Priority: Use geometry if available, otherwise fallback to image analysis
+    // Load furnished apartment model (USDZ)
+    loadApartmentModel(scene);
+
+    // Only render structured geometry when available; otherwise rely on 3D model
     if (geometry) {
       console.log('Using structured geometry to create walls');
       createWallsFromGeometry(geometry, scene);
       setIsLoading(false);
-    } else if (blueprintUrl) {
-      console.log('Falling back to image analysis');
-      createHouseFromPlan(blueprintUrl, scene);
+    } else {
+      // No geometry; keep the 3D model only
+      setIsLoading(false);
     }
 
     // Mouse controls for orbital rotation (only for 3d view)
@@ -208,16 +269,137 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
         renderer.render(scene, camera);
       };
       animate();
-
       // Cleanup
       return () => {
         cleanupControls();
+        if (apartmentModelRef.current) {
+          scene.remove(apartmentModelRef.current);
+        }
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+      };
+    } else if (viewMode === 'first-person') {
+      const movement = movementStateRef.current;
+
+      const onKeyDown = (e) => {
+        switch (e.code) {
+          case 'KeyW':
+          case 'ArrowUp':
+            movement.forward = true;
+            break;
+          case 'KeyS':
+          case 'ArrowDown':
+            movement.back = true;
+            break;
+          case 'KeyA':
+          case 'ArrowLeft':
+            movement.left = true;
+            break;
+          case 'KeyD':
+          case 'ArrowRight':
+            movement.right = true;
+            break;
+          default:
+            break;
+        }
+      };
+
+      const onKeyUp = (e) => {
+        switch (e.code) {
+          case 'KeyW':
+          case 'ArrowUp':
+            movement.forward = false;
+            break;
+          case 'KeyS':
+          case 'ArrowDown':
+            movement.back = false;
+            break;
+          case 'KeyA':
+          case 'ArrowLeft':
+            movement.left = false;
+            break;
+          case 'KeyD':
+          case 'ArrowRight':
+            movement.right = false;
+            break;
+          default:
+            break;
+        }
+      };
+
+      const onMouseDown = (e) => {
+        movement.isMouseDown = true;
+        movement.lastX = e.clientX;
+        movement.lastY = e.clientY;
+      };
+
+      const onMouseUp = () => {
+        movement.isMouseDown = false;
+      };
+
+      const onMouseMove = (e) => {
+        if (!movement.isMouseDown) return;
+        const deltaX = e.clientX - movement.lastX;
+        const deltaY = e.clientY - movement.lastY;
+
+        movement.yaw -= deltaX * 0.0025;
+        movement.pitch -= deltaY * 0.0025;
+        movement.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, movement.pitch));
+
+        camera.rotation.set(movement.pitch, movement.yaw, 0, 'YXZ');
+
+        movement.lastX = e.clientX;
+        movement.lastY = e.clientY;
+      };
+
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('keyup', onKeyUp);
+      renderer.domElement.addEventListener('mousedown', onMouseDown);
+      renderer.domElement.addEventListener('mouseup', onMouseUp);
+      renderer.domElement.addEventListener('mousemove', onMouseMove);
+
+      const animate = () => {
+        animationFrameRef.current = requestAnimationFrame(animate);
+
+        const delta = clockRef.current.getDelta();
+        const speed = 4;
+        const direction = new THREE.Vector3();
+
+        direction.z = Number(movement.forward) - Number(movement.back);
+        direction.x = Number(movement.right) - Number(movement.left);
+        // Joystick vector (from on-screen control)
+        direction.x += joystickStateRef.current.vx;
+        direction.z += joystickStateRef.current.vz;
+
+        if (direction.lengthSq() > 0) {
+          direction.normalize();
+          const moveX = direction.x * speed * delta;
+          const moveZ = direction.z * speed * delta;
+
+          camera.translateX(moveX);
+          camera.translateZ(-moveZ);
+        }
+
+        renderer.render(scene, camera);
+      };
+      animate();
+
+      return () => {
+        window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('keyup', onKeyUp);
+        renderer.domElement.removeEventListener('mousedown', onMouseDown);
+        renderer.domElement.removeEventListener('mouseup', onMouseUp);
+        renderer.domElement.removeEventListener('mousemove', onMouseMove);
+        if (apartmentModelRef.current) {
+          scene.remove(apartmentModelRef.current);
+        }
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
         }
       };
     } else {
-      // For top and first-person views, just render once
+      // For top view, just render once
       const animate = () => {
         animationFrameRef.current = requestAnimationFrame(animate);
         renderer.render(scene, camera);
@@ -225,6 +407,9 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
       animate();
 
       return () => {
+        if (apartmentModelRef.current) {
+          scene.remove(apartmentModelRef.current);
+        }
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
         }
@@ -242,6 +427,14 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
         if (cameraRef.current instanceof THREE.PerspectiveCamera) {
           cameraRef.current.aspect = width / height;
           cameraRef.current.updateProjectionMatrix();
+        } else if (cameraRef.current instanceof THREE.OrthographicCamera) {
+          const aspect = width / height;
+          const frustum = ORTHO_FRUSTUM_SIZE;
+          cameraRef.current.left = (-frustum * aspect) / 2;
+          cameraRef.current.right = (frustum * aspect) / 2;
+          cameraRef.current.top = frustum / 2;
+          cameraRef.current.bottom = -frustum / 2;
+          cameraRef.current.updateProjectionMatrix();
         }
         
         rendererRef.current.setSize(width, height);
@@ -256,6 +449,7 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
   const createWallsFromGeometry = (planGeometry, scene) => {
     if (!planGeometry || !planGeometry.geometry || !planGeometry.geometry.walls) {
       console.warn('Invalid plan geometry provided');
+      setIsLoading(false);
       return;
     }
 
@@ -405,7 +599,12 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
           // Create texture for displaying the plan (use blob URL)
           const textureLoader = new THREE.TextureLoader();
           textureLoader.load(blobUrl, function(texture) {
-            const planeGeometry = new THREE.PlaneGeometry(20, 20);
+            const imgAspect = img.width / img.height || 1;
+            const baseSize = 20;
+            const planeHeight = baseSize;
+            const planeWidth = baseSize * imgAspect;
+
+            const planeGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
             const planeMaterial = new THREE.MeshBasicMaterial({ 
               map: texture,
               side: THREE.DoubleSide
@@ -420,29 +619,36 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           const analysisSize = 300;
-          canvas.width = analysisSize;
-          canvas.height = analysisSize;
+          const imgAspect = img.width / img.height || 1;
+          if (imgAspect >= 1) {
+            canvas.width = analysisSize * imgAspect;
+            canvas.height = analysisSize;
+          } else {
+            canvas.width = analysisSize;
+            canvas.height = analysisSize / imgAspect;
+          }
           
           // Draw image to canvas - blob URL is same-origin, so no tainting
-          ctx.drawImage(img, 0, 0, analysisSize, analysisSize);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           
           // Get image data - this should work now since blob URL is same-origin
-          const imageData = ctx.getImageData(0, 0, analysisSize, analysisSize);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           
           console.log('Image data extracted successfully, creating walls...');
           // Create walls from image
-          createWallsFromImage(imageData, analysisSize, analysisSize, scene);
+          const baseSize = 20;
+          const planeHeight = baseSize;
+          const planeWidth = baseSize * imgAspect;
+          createWallsFromImage(imageData, canvas.width, canvas.height, scene, planeWidth, planeHeight);
           
           // Clean up blob URL
           URL.revokeObjectURL(blobUrl);
-          setIsLoading(false);
         };
         
         img.onerror = function(error) {
           console.error('Failed to load image from blob URL:', error);
           URL.revokeObjectURL(blobUrl);
           createDefaultHouse(scene);
-          setIsLoading(false);
         };
         
         img.src = blobUrl;
@@ -451,11 +657,10 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
         console.error('Failed to fetch image:', error);
         console.error('Image URL:', imageSrc);
         createDefaultHouse(scene);
-        setIsLoading(false);
       });
   };
 
-  const createWallsFromImage = (imageData, width, height, scene) => {
+  const createWallsFromImage = (imageData, width, height, scene, scaleX = 20, scaleZ = 20) => {
     const data = imageData.data;
     const wallMap = new Array(width * height).fill(false);
     
@@ -475,12 +680,12 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
     }
     
     // Create walls from pixels
-    createWallsFromPixels(wallMap, width, height, scene);
+    createWallsFromPixels(wallMap, width, height, scene, scaleX, scaleZ);
   };
 
-  const createWallsFromPixels = (wallMap, width, height, scene) => {
-    const scale = 20;
-    const pixelSize = scale / width;
+  const createWallsFromPixels = (wallMap, width, height, scene, scaleX = 20, scaleZ = 20) => {
+    const pixelSizeX = scaleX / width;
+    const pixelSizeZ = scaleZ / height;
     const wallHeight = 3;
     const step = 1;
     
@@ -493,8 +698,8 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
         
         if (wallMap[idx]) {
           if (isBoundaryPixel(wallMap, width, height, x, y)) {
-            const worldX = (x / width - 0.5) * scale;
-            const worldZ = (y / height - 0.5) * scale;
+            const worldX = (x / width - 0.5) * scaleX;
+            const worldZ = (y / height - 0.5) * scaleZ;
             
             const isExternal = isExternalWall(wallMap, width, height, x, y);
             
@@ -509,7 +714,7 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
     }
     
     if (externalWalls.length > 0 || internalWalls.length > 0) {
-      createOptimizedWalls(externalWalls, internalWalls, pixelSize, wallHeight, scene);
+      createOptimizedWalls(externalWalls, internalWalls, pixelSizeX, pixelSizeZ, wallHeight, scene);
     } else {
       createDefaultHouse(scene);
     }
@@ -544,7 +749,7 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
     return false;
   };
 
-  const createOptimizedWalls = (externalWalls, internalWalls, pixelSize, wallHeight, scene) => {
+  const createOptimizedWalls = (externalWalls, internalWalls, pixelSizeX, pixelSizeZ, wallHeight, scene) => {
     const externalMaterial = new THREE.MeshPhongMaterial({ 
       color: 0xff0000,
       specular: 0x111111,
@@ -560,12 +765,12 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
     const externalGroup = new THREE.Group();
     const internalGroup = new THREE.Group();
     
-    const boxGeometry = new THREE.BoxGeometry(pixelSize, wallHeight, pixelSize);
+    const boxGeometry = new THREE.BoxGeometry(pixelSizeX, wallHeight, pixelSizeZ);
     
     // Store wall data for modifications
     wallsDataRef.current = {
-      external: externalWalls.map(w => ({ ...w, pixelSize })),
-      internal: internalWalls.map(w => ({ ...w, pixelSize })),
+      external: externalWalls.map(w => ({ ...w, pixelSizeX, pixelSizeZ })),
+      internal: internalWalls.map(w => ({ ...w, pixelSizeX, pixelSizeZ })),
     };
     
     externalWalls.forEach(wall => {
@@ -751,9 +956,11 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
           
         case 'add_wall':
           if (mod.position && mod.wallType === 'internal' && internalGroup) {
-            const pixelSize = wallsDataRef.current.internal[0]?.pixelSize || 0.067;
+            const sample = wallsDataRef.current.internal[0];
+            const pixelSizeX = sample?.pixelSizeX || 0.067;
+            const pixelSizeZ = sample?.pixelSizeZ || 0.067;
             const wallHeight = 3;
-            const boxGeometry = new THREE.BoxGeometry(pixelSize, wallHeight, pixelSize);
+            const boxGeometry = new THREE.BoxGeometry(pixelSizeX, wallHeight, pixelSizeZ);
             const material = new THREE.MeshPhongMaterial({ 
               color: mod.color ? new THREE.Color(mod.color) : 0x00ff00,
               specular: 0x111111,
@@ -800,6 +1007,209 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
     scene.add(walls);
   };
 
+  const getFirstPersonStartPosition = () => {
+    const bounds = modelBoundsRef.current;
+    if (bounds) {
+      const { center, min, max } = bounds;
+      const eye = Math.min(Math.max(min.y + 1.5, min.y + 1.0), max.y - 0.2);
+      const y = isFinite(eye) ? eye : 1.5;
+      return { x: center.x, y, z: center.z };
+    }
+    return { x: 0, y: 1.5, z: 0 };
+  };
+
+  const handleJoystickStart = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    const radius = rect.width / 2;
+    const clamped = clampJoystick(dx, dy, radius);
+    joystickStateRef.current = { active: true, vx: clamped.x / radius, vz: -clamped.y / radius };
+    setJoystickPos({ x: clamped.x, y: clamped.y, active: true });
+  };
+
+  const handleJoystickMove = (e) => {
+    if (!joystickStateRef.current.active) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    const radius = rect.width / 2;
+    const clamped = clampJoystick(dx, dy, radius);
+    joystickStateRef.current = { active: true, vx: clamped.x / radius, vz: -clamped.y / radius };
+    setJoystickPos({ x: clamped.x, y: clamped.y, active: true });
+  };
+
+  const handleJoystickEnd = () => {
+    joystickStateRef.current = { active: false, vx: 0, vz: 0 };
+    setJoystickPos({ x: 0, y: 0, active: false });
+  };
+
+  const clampJoystick = (dx, dy, radius) => {
+    const len = Math.hypot(dx, dy);
+    if (len <= radius) return { x: dx, y: dy };
+    const scale = radius / (len || 1);
+    return { x: dx * scale, y: dy * scale };
+  };
+
+  const loadApartmentModel = (scene) => {
+    const url = getProxyAssetUrl('https://storage.yandexcloud.net/optika/Untitled.glb');
+    const loader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+    dracoLoader.setDecoderConfig({ type: 'js' });
+    dracoLoader.preload();
+    loader.setDRACOLoader(dracoLoader);
+    loader.setMeshoptDecoder(MeshoptDecoder);
+
+    console.log('Loading apartment GLB from:', url);
+    setIsLoading(true);
+    setModelWarning(null);
+
+    if (apartmentModelRef.current) {
+      scene.add(apartmentModelRef.current);
+      setIsLoading(false);
+      console.log('Reusing cached apartment model');
+      return;
+    }
+
+    loader.load(
+      url,
+      (gltf) => {
+        const model = gltf.scene || gltf.scenes?.[0];
+        if (!model) {
+          console.error('GLB loaded but contains no scene');
+          setModelWarning('Model loaded but contains no scene.');
+          setIsLoading(false);
+          return;
+        }
+
+        // Remove previous instance if any
+        if (apartmentModelRef.current) {
+          scene.remove(apartmentModelRef.current);
+          disposeObject(apartmentModelRef.current);
+        }
+
+        // Center the model on the ground plane
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        console.log('Apartment raw bounds:', { size: size.toArray(), center: center.toArray(), min: box.min.toArray(), max: box.max.toArray() });
+
+        model.position.sub(center);
+        model.position.y -= box.min.y;
+
+        // Scale down very large assets or up tiny ones
+        const maxDimension = Math.max(size.x, size.y, size.z);
+        if (maxDimension > 50) {
+          const scale = 50 / maxDimension;
+          model.scale.setScalar(scale);
+        } else if (maxDimension < 1) {
+          // Scale up very tiny assets
+          const scale = 5 / Math.max(maxDimension, 0.001);
+          model.scale.setScalar(scale);
+        }
+
+        let meshCount = 0;
+        let childCount = 0;
+        // Ensure all meshes are visible; keep existing materials when present
+        model.traverse((child) => {
+          childCount += 1;
+          if (child.isMesh) {
+            meshCount += 1;
+            child.visible = true;
+            // Keep original materials to preserve textures; just ensure update
+            if (child.material) {
+              child.material.needsUpdate = true;
+            }
+            child.castShadow = true;
+            child.receiveShadow = true;
+            // Light optimization: ensure frustum culling is enabled
+            child.frustumCulled = true;
+          }
+        });
+        console.log('Apartment children:', childCount, 'meshes:', meshCount);
+
+        // Recompute bounds after transforms/material changes
+        const finalBox = new THREE.Box3().setFromObject(model);
+        const finalCenter = finalBox.getCenter(new THREE.Vector3());
+        const finalSize = finalBox.getSize(new THREE.Vector3());
+        console.log('Apartment final bounds:', { size: finalSize.toArray(), center: finalCenter.toArray(), min: finalBox.min.toArray(), max: finalBox.max.toArray() });
+
+        if (meshCount === 0) {
+          setModelWarning('Loaded model has 0 meshes. It may be an unsupported USDZ variant; try converting to glTF.');
+        } else {
+          setModelWarning(null);
+        }
+
+        modelBoundsRef.current = {
+          center: finalCenter.clone(),
+          min: finalBox.min.clone(),
+          max: finalBox.max.clone(),
+        };
+
+        // Visualize bounds for debugging
+        const bboxHelper = new THREE.Box3Helper(finalBox, new THREE.Color(0x00ffff));
+        scene.add(bboxHelper);
+
+        scene.add(model);
+        apartmentModelRef.current = model;
+
+        // Fit camera to model if we're in 3D view
+        if (cameraRef.current && viewMode === '3d') {
+          fitCameraToObject(cameraRef.current, model, rendererRef.current, 1.8);
+        } else if (cameraRef.current && viewMode === 'first-person') {
+          const startPos = getFirstPersonStartPosition();
+          cameraRef.current.position.set(startPos.x, startPos.y, startPos.z);
+          cameraRef.current.lookAt(finalCenter);
+        }
+
+        setIsLoading(false);
+        console.log('Apartment model loaded successfully');
+      },
+      undefined,
+      (error) => {
+        console.error('Failed to load apartment model:', error);
+        setIsLoading(false);
+      }
+    );
+  };
+
+  const fitCameraToObject = (camera, object, renderer, offset = 1.25) => {
+    const box = new THREE.Box3().setFromObject(object);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = camera.fov * (Math.PI / 180);
+    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+
+    cameraZ *= offset;
+    camera.position.set(center.x, center.y + maxDim * 0.5, cameraZ);
+    camera.lookAt(center);
+
+    if (renderer) {
+      camera.updateProjectionMatrix();
+      renderer.render(sceneRef.current, camera);
+    }
+  };
+
+  const disposeObject = (obj) => {
+    obj.traverse((child) => {
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) {
+        if (Array.isArray(child.material)) {
+          child.material.forEach((mat) => mat.dispose());
+        } else {
+          child.material.dispose();
+        }
+      }
+    });
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -807,6 +1217,13 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
         containerRef.current.removeChild(rendererRef.current.domElement);
         rendererRef.current.dispose();
       }
+      if (apartmentModelRef.current && sceneRef.current) {
+        sceneRef.current.remove(apartmentModelRef.current);
+        disposeObject(apartmentModelRef.current);
+        apartmentModelRef.current = null;
+      }
+      joystickStateRef.current = { active: false, vx: 0, vz: 0 };
+      setIsLoading(false);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -815,20 +1232,43 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
 
   // Get blueprint URL from variant - try multiple paths
   const blueprintUrl = variant?.aiRequest?.plan?.fileUrl || variant?.thumbnailUrl;
-  
-  if (!blueprintUrl) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-100">
-        <div className="text-gray-600">No blueprint image available</div>
-      </div>
-    );
-  }
 
   return (
     <div className="relative w-full h-full">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 z-10">
-          <div className="text-gray-600">Loading 3D model...</div>
+          <div className="flex flex-col items-center gap-3 text-gray-700">
+            <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+            <span className="text-sm font-medium">Loading 3D model...</span>
+          </div>
+        </div>
+      )}
+      {modelWarning && (
+        <div className="absolute inset-0 pointer-events-none flex items-start justify-end p-4 z-20">
+          <div className="bg-yellow-100 text-yellow-800 text-sm px-3 py-2 rounded shadow">
+            {modelWarning}
+          </div>
+        </div>
+      )}
+      {viewMode === 'first-person' && (
+        <div className="absolute bottom-4 left-4 z-20 select-none">
+          <div
+            className="w-24 h-24 rounded-full bg-black/10 border border-white/50 relative touch-none"
+            style={{ touchAction: 'none' }}
+            onPointerDown={(e) => handleJoystickStart(e)}
+            onPointerMove={(e) => handleJoystickMove(e)}
+            onPointerUp={(e) => handleJoystickEnd(e)}
+            onPointerCancel={(e) => handleJoystickEnd(e)}
+            onPointerLeave={(e) => handleJoystickEnd(e)}>
+            <div
+              className="w-12 h-12 rounded-full bg-white/70 border border-gray-400 absolute"
+              style={{
+                left: `calc(50% - 24px + ${joystickPos.x}px)`,
+                top: `calc(50% - 24px + ${joystickPos.y}px)`,
+                transition: joystickPos.active ? 'none' : 'transform 0.15s ease, left 0.15s ease, top 0.15s ease',
+              }}
+            />
+          </div>
         </div>
       )}
       <div ref={containerRef} className="w-full h-full" />

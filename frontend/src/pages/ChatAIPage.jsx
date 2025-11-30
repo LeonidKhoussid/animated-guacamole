@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ChatMessages } from "../components/ChatMessages.jsx";
 import { ChatInput } from "../components/ChatInput.jsx";
@@ -50,6 +50,7 @@ export const ChatAIPage = () => {
   const [userPlans, setUserPlans] = useState([]);
   const [selectedAction, setSelectedAction] = useState(null); // 'replanning' or 'design'
   const [uploading, setUploading] = useState(false);
+  const processedVariantsRef = useRef(new Set());
 
   const loadChatFromRequest = async (reqId) => {
     try {
@@ -57,6 +58,9 @@ export const ChatAIPage = () => {
       const aiRequest = response.data;
 
       setRequestId(aiRequest.id);
+      processedVariantsRef.current = new Set(
+        (aiRequest.variants || []).map((v) => v.id)
+      );
 
       const newMessages = [];
       if (aiRequest.inputText) {
@@ -84,6 +88,9 @@ export const ChatAIPage = () => {
       const response = await apiClient.get(`/ai/requests/${reqId}`);
       if (response.data.variants && response.data.variants.length > 0) {
         setVariants(response.data.variants);
+        response.data.variants.forEach((v) => {
+          if (v?.id) processedVariantsRef.current.add(v.id);
+        });
       }
     } catch (error) {
       console.log("Could not load variants for request:", error);
@@ -102,6 +109,11 @@ export const ChatAIPage = () => {
         { role: "assistant", content: data.data.message },
       ]);
     } else if (data.type === "option_generated") {
+      const key = data.data?.variant_id || `idx:${data.data.index}`;
+      if (processedVariantsRef.current.has(key)) {
+        return;
+      }
+      processedVariantsRef.current.add(key);
       setMessages((prev) => [
         ...prev,
         {
@@ -120,6 +132,7 @@ export const ChatAIPage = () => {
               }
               return [...prev, response.data];
             });
+            processedVariantsRef.current.add(response.data.id);
           })
           .catch(console.error);
       }
@@ -163,6 +176,7 @@ export const ChatAIPage = () => {
 
     const loadData = async () => {
       if (requestIdFromQuery) {
+        processedVariantsRef.current = new Set();
         setIsLoadingHistory(true);
         await loadChatFromRequest(requestIdFromQuery);
         setIsLoadingHistory(false);
@@ -174,6 +188,9 @@ export const ChatAIPage = () => {
         setVariants(savedState.variants || []);
         setRequestId(savedState.requestId || null);
         setShowWelcome(savedState.messages.length === 0);
+        processedVariantsRef.current = new Set(
+          (savedState.variants || []).map((v) => v.id)
+        );
 
         if (
           savedState.requestId &&
@@ -189,7 +206,7 @@ export const ChatAIPage = () => {
       }
     };
 
-    loadData();
+      loadData();
   }, [planId, searchParams]);
 
   // Save chat state whenever it changes
@@ -288,16 +305,22 @@ export const ChatAIPage = () => {
           : 'Дизайн — расстановка мебели, выбор стиля, варианты интерьера.';
         
         // Wait a bit for navigation, then send the message
-        setTimeout(() => {
-          handleSend(actionText);
-        }, 500);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Ошибка загрузки файла');
-    } finally {
-      setUploading(false);
+      setTimeout(() => {
+        handleSend(actionText);
+      }, 500);
     }
-  };
+  } catch (error) {
+    // Avoid noisy toasts on canceled/aborted requests
+    const maybeCanceled =
+      error?.code === 'ERR_CANCELED' ||
+      error?.message?.toLowerCase?.().includes('canceled');
+    if (!maybeCanceled) {
+      toast.error(error.response?.data?.error || 'Ошибка загрузки файла');
+    }
+  } finally {
+    setUploading(false);
+  }
+};
 
   const handleVariantClick = (variant) => {
     setSelectedVariantId(variant.id);

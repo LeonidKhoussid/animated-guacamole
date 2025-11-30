@@ -32,8 +32,8 @@ export const uploadPlan = async (request, reply) => {
   }
 };
 
-// Proxy endpoint to serve images with CORS headers
-export const proxyImage = async (request, reply) => {
+// Proxy endpoint to serve assets (images/3D files) with CORS headers
+export const proxyAsset = async (request, reply) => {
   try {
     const { url } = request.query;
     
@@ -53,22 +53,22 @@ export const proxyImage = async (request, reply) => {
       return reply.code(403).send({ error: 'Invalid image URL' });
     }
 
-    // Fetch image from S3
+    // Fetch asset from storage
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
-      timeout: 10000,
+      timeout: 20000,
     });
 
     // Set CORS headers
     reply.header('Access-Control-Allow-Origin', '*');
     reply.header('Access-Control-Allow-Methods', 'GET');
-    reply.header('Content-Type', response.headers['content-type'] || 'image/png');
+    reply.header('Content-Type', response.headers['content-type'] || 'application/octet-stream');
     reply.header('Cache-Control', 'public, max-age=31536000');
 
     return reply.send(Buffer.from(response.data));
   } catch (error) {
-    request.log.error('Image proxy error:', error);
-    return reply.code(500).send({ error: 'Failed to load image' });
+    request.log.error('Asset proxy error:', error);
+    return reply.code(500).send({ error: 'Failed to load asset' });
   }
 };
 
@@ -104,5 +104,4 @@ export const getUserPlans = async (request, reply) => {
     return reply.code(500).send({ error: 'Internal server error' });
   }
 };
-
 

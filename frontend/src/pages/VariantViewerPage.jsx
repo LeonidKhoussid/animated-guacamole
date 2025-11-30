@@ -100,9 +100,20 @@ export const VariantViewerPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
+        <div className="mb-6 flex items-center gap-4">
           <Link to="/dashboard" className="text-blue-600 hover:text-blue-800">
             ← Back to Dashboard
+          </Link>
+          <Link
+            to={
+              variant?.aiRequest?.planId || variant?.aiRequest?.plan?.id
+                ? `/chat/${
+                    variant.aiRequest.planId || variant.aiRequest.plan.id
+                  }`
+                : "/chat"
+            }
+            className="text-blue-600 hover:text-blue-800">
+            ← Back to Chat
           </Link>
         </div>
 

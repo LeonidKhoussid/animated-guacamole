@@ -66,18 +66,22 @@ const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
     } catch (error) {
       const isRateLimit = error.response?.status === 429;
       const isLastAttempt = attempt === maxRetries - 1;
-      
+
       if (!isRateLimit || isLastAttempt) {
         throw error;
       }
-      
+
       // Exponential backoff: 1s, 2s, 4s
       const delay = baseDelay * Math.pow(2, attempt);
-      const retryAfter = error.response?.headers?.['retry-after'];
+      const retryAfter = error.response?.headers?.["retry-after"];
       const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : delay;
-      
-      console.log(`Rate limited (429). Retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})...`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+
+      console.log(
+        `Rate limited (429). Retrying in ${waitTime}ms (attempt ${
+          attempt + 1
+        }/${maxRetries})...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
   }
 };
@@ -85,7 +89,7 @@ const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
 // Call GigaChat API
 export const callGigaChat = async (
   messages,
-  model = "GigaChat",
+  model = "GigaChat-Max",
   options = {}
 ) => {
   const token = await getAccessToken();
@@ -162,7 +166,7 @@ export const generateImageWithGigaChat = async (
         return await axios.post(
           "https://gigachat.devices.sberbank.ru/api/v1/chat/completions",
           {
-            model: "GigaChat",
+            model: "GigaChat-Max",
             messages,
             temperature: 0.7,
             max_tokens: 2000,
