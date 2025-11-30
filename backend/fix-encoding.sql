@@ -18,3 +18,4 @@ TEMPLATE template0;
 \c plan_ai
 
 -- Done! Now run: npm run prisma:migrate
+

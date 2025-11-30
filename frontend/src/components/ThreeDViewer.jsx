@@ -398,6 +398,114 @@ const ORTHO_FRUSTUM_SIZE = 18;
           cancelAnimationFrame(animationFrameRef.current);
         }
       };
+    } else if (viewMode === 'first-person') {
+      // First-person controls
+      const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+      const moveSpeed = 0.1;
+      const rotationSpeed = 0.02;
+      let yaw = 0; // Horizontal rotation
+      let pitch = 0; // Vertical rotation
+
+      const onKeyDown = (e) => {
+        if (keys.hasOwnProperty(e.key)) {
+          keys[e.key] = true;
+          e.preventDefault();
+        }
+      };
+
+      const onKeyUp = (e) => {
+        if (keys.hasOwnProperty(e.key)) {
+          keys[e.key] = false;
+          e.preventDefault();
+        }
+      };
+
+      // Mouse look
+      let mouseDown = false;
+      let lastMouseX = 0;
+      let lastMouseY = 0;
+
+      const onMouseDown = (e) => {
+        mouseDown = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        renderer.domElement.requestPointerLock();
+      };
+
+      const onMouseMove = (e) => {
+        if (mouseDown || document.pointerLockElement === renderer.domElement) {
+          const movementX = e.movementX || e.clientX - lastMouseX;
+          const movementY = e.movementY || e.clientY - lastMouseY;
+          
+          yaw -= movementX * rotationSpeed;
+          pitch -= movementY * rotationSpeed;
+          pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+          
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        }
+      };
+
+      const onMouseUp = () => {
+        mouseDown = false;
+        if (document.pointerLockElement === renderer.domElement) {
+          document.exitPointerLock();
+        }
+      };
+
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('keyup', onKeyUp);
+      renderer.domElement.addEventListener('mousedown', onMouseDown);
+      renderer.domElement.addEventListener('mousemove', onMouseMove);
+      renderer.domElement.addEventListener('mouseup', onMouseUp);
+
+      // Animation loop with movement
+      const animate = () => {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        
+        // Calculate forward and right vectors
+        const forward = new THREE.Vector3(0, 0, -1);
+        forward.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+        
+        const right = new THREE.Vector3(1, 0, 0);
+        right.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+        // Move camera
+        if (keys.w || keys.ArrowUp) {
+          camera.position.add(forward.clone().multiplyScalar(moveSpeed));
+        }
+        if (keys.s || keys.ArrowDown) {
+          camera.position.add(forward.clone().multiplyScalar(-moveSpeed));
+        }
+        if (keys.a || keys.ArrowLeft) {
+          camera.position.add(right.clone().multiplyScalar(-moveSpeed));
+        }
+        if (keys.d || keys.ArrowRight) {
+          camera.position.add(right.clone().multiplyScalar(moveSpeed));
+        }
+
+        // Apply rotation
+        camera.rotation.order = 'YXZ';
+        camera.rotation.y = yaw;
+        camera.rotation.x = pitch;
+
+        renderer.render(scene, camera);
+      };
+      animate();
+
+      return () => {
+        window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('keyup', onKeyUp);
+        renderer.domElement.removeEventListener('mousedown', onMouseDown);
+        renderer.domElement.removeEventListener('mousemove', onMouseMove);
+        renderer.domElement.removeEventListener('mouseup', onMouseUp);
+        if (document.pointerLockElement === renderer.domElement) {
+          document.exitPointerLock();
+        }
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+      };
     } else {
       // For top view, just render once
       const animate = () => {
