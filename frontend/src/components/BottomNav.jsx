@@ -7,7 +7,7 @@ export const BottomNav = () => {
   // Check if route is active
   const isHomeActive = location.pathname === '/home' || location.pathname === '/dashboard';
   const isHashtagsActive = location.pathname === '/hashtags';
-  const isMessagesActive = location.pathname.startsWith('/chat');
+  const isMessagesActive = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
   const isFavoritesActive = location.pathname === '/favorites';
   const isProfileActive = location.pathname === '/profile';
 
@@ -44,7 +44,7 @@ export const BottomNav = () => {
 
         {/* Messages */}
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/chat')}
           className="flex flex-col items-center space-y-1"
         >
           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isMessagesActive ? 'bg-white' : ''}`}>

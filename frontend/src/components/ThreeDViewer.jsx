@@ -12,7 +12,7 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
   const wallsDataRef = useRef({ external: [], internal: [] });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Debug: log variant structure and planGeometry
+  // Debug: log variant structure
   useEffect(() => {
     if (variant) {
       const blueprintUrl = variant?.aiRequest?.plan?.fileUrl || variant?.thumbnailUrl;
@@ -24,38 +24,13 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
         thumbnailUrl: variant.thumbnailUrl,
         blueprintUrl: blueprintUrl,
         variantId: variant.id,
-        hasPlanGeometry: !!variant.planGeometry,
-        planGeometryType: typeof variant.planGeometry,
-        planGeometryKeys: variant.planGeometry ? Object.keys(variant.planGeometry) : [],
       });
-      
-      if (variant.planGeometry) {
-        console.log('ThreeDViewer - planGeometry details:', {
-          isObject: typeof variant.planGeometry === 'object',
-          isNull: variant.planGeometry === null,
-          keys: Object.keys(variant.planGeometry),
-          hasGeometry: !!variant.planGeometry.geometry,
-          hasWalls: !!variant.planGeometry.geometry?.walls,
-          wallsLength: variant.planGeometry.geometry?.walls?.length || 0,
-          fullStructure: JSON.stringify(variant.planGeometry, null, 2).substring(0, 500),
-        });
-      }
       
       if (!blueprintUrl) {
         console.error('No blueprint URL found! Variant structure:', JSON.stringify(variant, null, 2));
       }
     }
-    
-    console.log('ThreeDViewer - planGeometry prop:', {
-      hasPlanGeometry: !!planGeometry,
-      planGeometryType: typeof planGeometry,
-      planGeometryValue: planGeometry,
-      planGeometryKeys: planGeometry ? Object.keys(planGeometry) : [],
-      hasGeometry: !!planGeometry?.geometry,
-      hasWalls: !!planGeometry?.geometry?.walls,
-      wallsLength: planGeometry?.geometry?.walls?.length || 0,
-    });
-  }, [variant, planGeometry]);
+  }, [variant]);
 
   // Helper function to convert S3 URL to proxy URL
   const getProxyImageUrl = (imageUrl) => {
@@ -149,25 +124,13 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
     scene.add(directionalLight);
 
     // Priority: Use geometry if available, otherwise fallback to image analysis
-    if (geometry && geometry.geometry && geometry.geometry.walls && Array.isArray(geometry.geometry.walls) && geometry.geometry.walls.length > 0) {
+    if (geometry) {
       console.log('Using structured geometry to create walls');
       createWallsFromGeometry(geometry, scene);
       setIsLoading(false);
     } else if (blueprintUrl) {
-      console.log('Falling back to image analysis (geometry not available or invalid)');
-      if (geometry) {
-        console.warn('Geometry exists but is invalid:', {
-          hasGeometry: !!geometry,
-          hasGeometryGeometry: !!geometry.geometry,
-          hasWalls: !!geometry.geometry?.walls,
-          wallsIsArray: Array.isArray(geometry.geometry?.walls),
-          wallsLength: geometry.geometry?.walls?.length || 0,
-        });
-      }
+      console.log('Falling back to image analysis');
       createHouseFromPlan(blueprintUrl, scene);
-    } else {
-      console.warn('No geometry and no blueprint URL available');
-      setIsLoading(false);
     }
 
     // Mouse controls for orbital rotation (only for 3d view)
@@ -291,27 +254,8 @@ export const ThreeDViewer = ({ variant, viewMode = '3d', planGeometry = null }) 
 
   // Create walls from structured geometry data
   const createWallsFromGeometry = (planGeometry, scene) => {
-    console.log('createWallsFromGeometry called with:', {
-      hasPlanGeometry: !!planGeometry,
-      planGeometryType: typeof planGeometry,
-      planGeometryKeys: planGeometry ? Object.keys(planGeometry) : [],
-      planGeometryValue: planGeometry ? JSON.stringify(planGeometry).substring(0, 200) : 'null',
-    });
-    
-    if (!planGeometry) {
-      console.warn('Invalid plan geometry provided: planGeometry is null/undefined');
-      return;
-    }
-    
-    if (!planGeometry.geometry) {
-      console.warn('Invalid plan geometry provided: missing geometry property');
-      console.log('planGeometry structure:', Object.keys(planGeometry));
-      return;
-    }
-    
-    if (!planGeometry.geometry.walls || !Array.isArray(planGeometry.geometry.walls)) {
-      console.warn('Invalid plan geometry provided: missing or invalid walls array');
-      console.log('planGeometry.geometry structure:', planGeometry.geometry ? Object.keys(planGeometry.geometry) : 'null');
+    if (!planGeometry || !planGeometry.geometry || !planGeometry.geometry.walls) {
+      console.warn('Invalid plan geometry provided');
       return;
     }
 

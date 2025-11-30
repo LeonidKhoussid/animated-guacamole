@@ -6,8 +6,10 @@ import { VariantCard } from "../components/VariantCard.jsx";
 import { BottomNav } from "../components/BottomNav.jsx";
 import { ThreeDViewer } from "../components/ThreeDViewer.jsx";
 import { useWebSocket } from "../hooks/useWebSocket.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import apiClient from "../utils/apiClient.js";
 import { toast } from "../components/Toast.jsx";
+import { uploadFile } from "../utils/fileUpload.js";
 
 // Helper functions for localStorage persistence
 const getChatStorageKey = (planId) => `chat_${planId}`;
@@ -35,6 +37,7 @@ const saveChatState = (planId, state) => {
 export const ChatAIPage = () => {
   const { planId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState([]);
   const [variants, setVariants] = useState([]);
@@ -43,9 +46,53 @@ export const ChatAIPage = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [currentPlanGeometry, setCurrentPlanGeometry] = useState(null);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [userPlans, setUserPlans] = useState([]);
+  const [selectedAction, setSelectedAction] = useState(null); // 'replanning' or 'design'
+  const [uploading, setUploading] = useState(false);
+
+  const loadChatFromRequest = async (reqId) => {
+    try {
+      const response = await apiClient.get(`/ai/requests/${reqId}`);
+      const aiRequest = response.data;
+
+      setRequestId(aiRequest.id);
+
+      const newMessages = [];
+      if (aiRequest.inputText) {
+        newMessages.push({ role: "user", content: aiRequest.inputText });
+      }
+      if (aiRequest.variants && aiRequest.variants.length > 0) {
+        newMessages.push({
+          role: "assistant",
+          content: `Сгенерировано ${aiRequest.variants.length} вариантов перепланировки`,
+        });
+      }
+      setMessages(newMessages);
+
+      if (aiRequest.variants && aiRequest.variants.length > 0) {
+        setVariants(aiRequest.variants);
+      }
+    } catch (error) {
+      console.error("Failed to load chat from request:", error);
+      toast.error("Failed to load chat history");
+    }
+  };
+
+  const loadVariantsForRequest = async (reqId) => {
+    try {
+      const response = await apiClient.get(`/ai/requests/${reqId}`);
+      if (response.data.variants && response.data.variants.length > 0) {
+        setVariants(response.data.variants);
+      }
+    } catch (error) {
+      console.log("Could not load variants for request:", error);
+    }
+  };
 
   const handleWebSocketMessage = (data) => {
     console.log("WebSocket message received:", data);
+    setShowWelcome(false); // Hide welcome when conversation starts
     if (data.type === "processing_status") {
       setMessages((prev) => [
         ...prev.filter(
@@ -67,98 +114,7 @@ export const ChatAIPage = () => {
         apiClient
           .get(`/variants/${data.data.variant_id}`)
           .then((response) => {
-            const variant = response.data;
-
-            // Debug: Log full variant structure
-            console.log(
-              `\n📦 Variant ${data.data.index}/${data.data.total} loaded from API:`
-            );
-            console.log(`   ID: ${variant.id}`);
-            console.log(`   Has planGeometry: ${!!variant.planGeometry}`);
-            console.log(`   planGeometry type: ${typeof variant.planGeometry}`);
-            console.log(`   planGeometry value:`, variant.planGeometry);
-            console.log(`   Raw response.data type:`, typeof response.data);
-            console.log(
-              `   Raw response.data.planGeometry:`,
-              response.data.planGeometry
-            );
-
-            // Try to parse planGeometry if it's a string (shouldn't happen but just in case)
-            if (typeof variant.planGeometry === "string") {
-              try {
-                variant.planGeometry = JSON.parse(variant.planGeometry);
-                console.log(`   ✅ Parsed planGeometry from string`);
-              } catch (e) {
-                console.error(`   ❌ Failed to parse planGeometry string:`, e);
-              }
-            }
-
-            // Check if planGeometry is an empty object (serialization issue)
-            if (
-              variant.planGeometry &&
-              typeof variant.planGeometry === "object"
-            ) {
-              const keys = Object.keys(variant.planGeometry);
-              if (keys.length === 0) {
-                console.warn(
-                  `   ⚠️  planGeometry is an empty object - serialization issue!`
-                );
-                console.log(
-                  `   This suggests the JSON field wasn't properly serialized by Fastify`
-                );
-                // Try to get it from the raw response
-                if (
-                  response.data.planGeometry &&
-                  typeof response.data.planGeometry === "object" &&
-                  Object.keys(response.data.planGeometry).length > 0
-                ) {
-                  variant.planGeometry = response.data.planGeometry;
-                  console.log(
-                    `   ✅ Using planGeometry from raw response.data`
-                  );
-                }
-              }
-            }
-
-            // Log bearing wall information when variant is loaded
-            if (variant.planGeometry?.geometry?.walls) {
-              const walls = variant.planGeometry.geometry.walls;
-              const bearingWalls = walls.filter((w) => w.isBearing);
-              console.log(
-                `   🚫 Bearing walls: ${bearingWalls.length} (cannot modify)`
-              );
-              console.log(
-                `   ✅ Non-bearing walls: ${
-                  walls.length - bearingWalls.length
-                } (can modify)`
-              );
-            } else {
-              console.warn(
-                `   ⚠️  No planGeometry.geometry.walls found in variant`
-              );
-              console.log(`   Variant keys:`, Object.keys(variant));
-              if (variant.planGeometry) {
-                console.log(
-                  `   planGeometry type: ${typeof variant.planGeometry}`
-                );
-                console.log(
-                  `   planGeometry keys:`,
-                  Object.keys(variant.planGeometry || {})
-                );
-                console.log(
-                  `   planGeometry structure:`,
-                  JSON.stringify(variant.planGeometry, null, 2).substring(
-                    0,
-                    500
-                  )
-                );
-              } else {
-                console.log(`   planGeometry is null/undefined`);
-              }
-            }
-
             setVariants((prev) => {
-              // Avoid duplicates
               if (prev.find((v) => v.id === response.data.id)) {
                 return prev;
               }
@@ -177,82 +133,64 @@ export const ChatAIPage = () => {
   };
 
   // Only connect WebSocket if we're not loading from history and we have a requestId
-  const { isConnected, error } = useWebSocket(
+  const { error } = useWebSocket(
     requestId && !isLoadingHistory ? `/ai/stream/${requestId}` : null,
     handleWebSocketMessage
   );
+
+  // Load user plans if no planId (optional - don't show error if it fails)
+  useEffect(() => {
+    if (!planId) {
+      const loadUserPlans = async () => {
+        try {
+          const response = await apiClient.get('/plans');
+          setUserPlans(response.data || []);
+        } catch (error) {
+          // Silently fail - it's okay if user has no plans yet
+          console.log('No plans found or endpoint unavailable');
+          setUserPlans([]);
+        }
+      };
+      loadUserPlans();
+    } else {
+      setUserPlans([]);
+    }
+  }, [planId]);
 
   // Load persisted chat state on mount or from query param
   useEffect(() => {
     const requestIdFromQuery = searchParams.get("requestId");
 
-    if (requestIdFromQuery) {
-      // Load specific request from history - don't connect WebSocket
-      setIsLoadingHistory(true);
-      loadChatFromRequest(requestIdFromQuery).finally(() => {
+    const loadData = async () => {
+      if (requestIdFromQuery) {
+        setIsLoadingHistory(true);
+        await loadChatFromRequest(requestIdFromQuery);
         setIsLoadingHistory(false);
-      });
-    } else {
-      // Load persisted state
-      setIsLoadingHistory(false);
-      const savedState = loadChatState(planId);
-      setMessages(savedState.messages || []);
-      setVariants(savedState.variants || []);
-      setRequestId(savedState.requestId || null);
+        setShowWelcome(false);
+      } else if (planId) {
+        setIsLoadingHistory(false);
+        const savedState = loadChatState(planId);
+        setMessages(savedState.messages || []);
+        setVariants(savedState.variants || []);
+        setRequestId(savedState.requestId || null);
+        setShowWelcome(savedState.messages.length === 0);
 
-      // If we have a requestId but no variants, try to load them
-      if (
-        savedState.requestId &&
-        (!savedState.variants || savedState.variants.length === 0)
-      ) {
-        loadVariantsForRequest(savedState.requestId);
+        if (
+          savedState.requestId &&
+          (!savedState.variants || savedState.variants.length === 0)
+        ) {
+          loadVariantsForRequest(savedState.requestId);
+        }
+      } else {
+        // No planId - show welcome message
+        setShowWelcome(true);
+        setMessages([]);
+        setVariants([]);
       }
-    }
+    };
+
+    loadData();
   }, [planId, searchParams]);
-
-  const loadChatFromRequest = async (reqId) => {
-    try {
-      const response = await apiClient.get(`/ai/requests/${reqId}`);
-      const aiRequest = response.data;
-
-      // Set request ID
-      setRequestId(aiRequest.id);
-
-      // Build messages from request
-      const newMessages = [];
-      if (aiRequest.inputText) {
-        newMessages.push({ role: "user", content: aiRequest.inputText });
-      }
-      if (aiRequest.variants && aiRequest.variants.length > 0) {
-        newMessages.push({
-          role: "assistant",
-          content: `Сгенерировано ${aiRequest.variants.length} вариантов перепланировки`,
-        });
-      }
-      setMessages(newMessages);
-
-      // Set variants
-      if (aiRequest.variants && aiRequest.variants.length > 0) {
-        setVariants(aiRequest.variants);
-      }
-    } catch (error) {
-      console.error("Failed to load chat from request:", error);
-      toast.error("Failed to load chat history");
-    }
-  };
-
-  const loadVariantsForRequest = async (reqId) => {
-    try {
-      // Try to get variants from the AI request
-      const response = await apiClient.get(`/ai/requests/${reqId}`);
-      if (response.data.variants && response.data.variants.length > 0) {
-        setVariants(response.data.variants);
-      }
-    } catch (error) {
-      // Endpoint might not exist, that's okay
-      console.log("Could not load variants for request:", error);
-    }
-  };
 
   // Save chat state whenever it changes
   useEffect(() => {
@@ -265,30 +203,26 @@ export const ChatAIPage = () => {
     }
   }, [planId, messages, variants, requestId]);
 
+  const handlePlanSelect = (selectedPlanId) => {
+    navigate(`/chat/${selectedPlanId}`);
+  };
+
   useEffect(() => {
     if (error) {
       toast.error("WebSocket connection error");
     }
   }, [error]);
 
-  const loadVariants = async () => {
-    if (!requestId) return;
-    try {
-      // Fetch AI request to get variants
-      const response = await apiClient.get(`/ai/requests/${requestId}`);
-      if (response.data.variants) {
-        setVariants(response.data.variants);
-      }
-    } catch (error) {
-      // If endpoint doesn't exist, we'll rely on WebSocket messages
-      console.error("Failed to load variants:", error);
-    }
-  };
-
   const handleSend = async (message) => {
+    if (!planId) {
+      toast.error("Пожалуйста, сначала выберите или загрузите план квартиры");
+      return;
+    }
+
+    setShowWelcome(false);
     setMessages((prev) => [...prev, { role: "user", content: message }]);
     setProcessing(true);
-    setIsLoadingHistory(false); // New message means we're not loading history anymore
+    setIsLoadingHistory(false);
 
     try {
       const requestBody = {
@@ -296,7 +230,6 @@ export const ChatAIPage = () => {
         text: message,
       };
 
-      // Only include previous_request_id if it exists
       if (requestId) {
         requestBody.previous_request_id = requestId;
       }
@@ -316,113 +249,220 @@ export const ChatAIPage = () => {
     }
   };
 
-  const handleContinueConversation = (variant) => {
-    // Add a message asking about the variant
-    const message = `Расскажи подробнее о варианте: ${variant.description}`;
-    handleSend(message);
+  const handleQuickAction = (action) => {
+    setSelectedAction(action);
+    setShowWelcome(false);
+    
+    const actionText = action === 'replanning' 
+      ? 'Перепланировка'
+      : 'Дизайн';
+    
+    // Add user message and assistant response
+    setMessages([
+      {
+        role: "user",
+        content: `Я хочу ${actionText}${action === 'replanning' ? ' 🔧' : ' 🎨'}`
+      },
+      {
+        role: "assistant",
+        content: `Хорошо, я вас понял! ✅\n\nЗагрузите сюда планировку своей квартиры или же выберите из уже загруженных и избранного.\n\nЗагрузить планировку можно нажав на скрепку 📎 в углу.`
+      }
+    ]);
+  };
+
+  const handleFileUpload = async (file) => {
+    if (!file) return;
+    
+    setUploading(true);
+    try {
+      const result = await uploadFile(file);
+      toast.success('План успешно загружен!');
+      
+      // Navigate to chat with the new planId
+      navigate(`/chat/${result.plan_id}`, { replace: true });
+      
+      // If there was a selected action, send it as a message
+      if (selectedAction) {
+        const actionText = selectedAction === 'replanning' 
+          ? 'Перепланировка — снести/добавить стены, объединить комнаты, проверить законность.'
+          : 'Дизайн — расстановка мебели, выбор стиля, варианты интерьера.';
+        
+        // Wait a bit for navigation, then send the message
+        setTimeout(() => {
+          handleSend(actionText);
+        }, 500);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Ошибка загрузки файла');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleVariantClick = (variant) => {
-    console.log("\n========== VARIANT SELECTED ==========");
-    console.log("📋 Variant ID:", variant.id);
-    console.log("📝 Description:", variant.description);
-    console.log(
-      "📊 Approval probability:",
-      `${Math.round(variant.approvalProbability * 100)}%`
-    );
-    console.log("\n🔍 Debugging variant object:");
-    console.log("   - Has planGeometry property:", "planGeometry" in variant);
-    console.log("   - planGeometry value:", variant.planGeometry);
-    console.log("   - planGeometry type:", typeof variant.planGeometry);
-    console.log("   - All variant keys:", Object.keys(variant));
-
     setSelectedVariantId(variant.id);
     if (variant.planGeometry) {
-      const walls = variant.planGeometry?.geometry?.walls || [];
-      const bearingWalls = walls.filter((w) => w.isBearing).length;
-      const nonBearingWalls = walls.filter((w) => !w.isBearing).length;
-
-      console.log("\n🏗️  Plan Geometry:");
-      console.log(`   - Total walls: ${walls.length}`);
-      console.log(`   - 🚫 Bearing walls (CANNOT CHANGE): ${bearingWalls}`);
-      console.log(`   - ✅ Non-bearing walls (CAN CHANGE): ${nonBearingWalls}`);
-
-      if (bearingWalls > 0) {
-        console.log(
-          "\n⚠️  WARNING: This variant includes bearing walls that cannot be modified!"
-        );
-        walls
-          .filter((w) => w.isBearing)
-          .forEach((wall, idx) => {
-            console.log(
-              `   Bearing wall ${idx + 1}: from (${wall.start.x}, ${
-                wall.start.y
-              }) to (${wall.end.x}, ${wall.end.y})`
-            );
-          });
-      }
-
-      console.log("\n🎨 Updating 3D view with variant geometry...");
       setCurrentPlanGeometry(variant.planGeometry);
     } else {
-      // Fallback: keep previous geometry or show message
-      console.warn("⚠️  No geometry available for variant:", variant.id);
-      console.log(
-        "   Variant object structure:",
-        JSON.stringify(variant, null, 2)
-      );
-      console.log("   Falling back to image-based rendering");
       setCurrentPlanGeometry(null);
     }
-    console.log("=======================================\n");
   };
 
+  const userName = user?.fullName?.split(' ')[0] || 'Пользователь';
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 flex flex-col">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">AI Chat</h1>
+    <div className="min-h-screen bg-[#2593F4] flex flex-col pb-20 relative">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 z-10">
+        <button
+          onClick={() => navigate('/home')}
+          className="text-white p-2"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <button
+          onClick={() => navigate('/home')}
+          className="text-white p-2"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
 
-        <div className="bg-white rounded-lg shadow-md flex-1 flex flex-col">
-          <ChatMessages messages={messages} />
-          <ChatInput onSend={handleSend} disabled={processing} />
-        </div>
+      {/* Main Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto px-4 pt-2 pb-4">
+        {/* Welcome Message */}
+        {showWelcome && messages.length === 0 && (
+          <div className="mb-6">
+            <div className="bg-white rounded-3xl rounded-bl-none p-5 shadow-lg max-w-[90%]">
+              <p className="text-gray-900 text-base font-medium mb-2">
+                Здравствуйте, {userName}!
+              </p>
+              <p className="text-gray-900 text-sm mb-3 leading-relaxed">
+                Я ваш помощник по перепланировке и дизайну квартиры.
+              </p>
+              {!planId ? (
+                <>
+                  <p className="text-gray-900 text-sm mb-3 font-medium">
+                    Выберите, чем хотите заняться:
+                  </p>
+                  <ul className="space-y-2.5 mb-4">
+                    <li className="flex items-start text-gray-900 text-sm leading-relaxed">
+                      <span className="mr-2 text-base">🔧</span>
+                      <span>Перепланировка — снести/добавить стены, объединить комнаты, проверить законность.</span>
+                    </li>
+                    <li className="flex items-start text-gray-900 text-sm leading-relaxed">
+                      <span className="mr-2 text-base">🎨</span>
+                      <span>Дизайн — расстановка мебели, выбор стиля, варианты интерьера.</span>
+                    </li>
+                  </ul>
+                  <p className="text-gray-900 text-xs leading-relaxed mb-4">
+                    Можете просто написать мне, что хотите изменить, например: «Объединить кухню и гостиную», «Сделай планировку без коридора» и т.д.
+                  </p>
+                  {userPlans.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-gray-900 text-xs font-medium mb-2">Или выберите план:</p>
+                      {userPlans.slice(0, 3).map((plan) => (
+                        <button
+                          key={plan.id}
+                          onClick={() => handlePlanSelect(plan.id)}
+                          className="w-full bg-gray-50 hover:bg-gray-100 rounded-lg p-3 text-left flex items-center space-x-3 transition-colors"
+                        >
+                          {plan.fileUrl && (
+                            <img
+                              src={plan.fileUrl}
+                              alt="Plan"
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-900 font-medium">
+                              {plan.name || `План ${plan.id.slice(0, 8)}`}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(plan.createdAt).toLocaleDateString('ru-RU')}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-gray-900 text-xs leading-relaxed">
+                  Можете просто написать мне, что хотите изменить, например: «Объединить кухню и гостиную», «Сделай планировку без коридора» и т.д.
+                </p>
+              )}
+            </div>
 
-        {/* 3D Viewer Section */}
-        {currentPlanGeometry && (
-          <div className="mt-8 bg-white rounded-lg shadow-md p-4">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              3D View
-            </h2>
-            <div className="h-96 bg-gray-100 rounded">
+            {/* Quick Action Buttons */}
+            {!planId && (
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => handleQuickAction('replanning')}
+                  className="flex-1 bg-blue-400 text-white px-4 py-3 rounded-xl font-medium hover:bg-blue-500 transition-colors text-sm"
+                >
+                  Перепланировка
+                </button>
+                <button
+                  onClick={() => handleQuickAction('design')}
+                  className="flex-1 bg-blue-400 text-white px-4 py-3 rounded-xl font-medium hover:bg-blue-500 transition-colors text-sm"
+                >
+                  Дизайн
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Chat Messages */}
+        {messages.length > 0 && (
+          <div className="space-y-4 mb-4">
+            <ChatMessages messages={messages} />
+          </div>
+        )}
+
+        {/* Variants */}
+        {variants.length > 0 && (
+          <div className="mb-4 space-y-3">
+            {variants.map((variant) => (
+              <VariantCard
+                key={variant.id}
+                variant={variant}
+                onClick={() => handleVariantClick(variant)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 3D Viewer */}
+        {currentPlanGeometry && selectedVariantId && (
+          <div className="mb-4 bg-white rounded-xl p-4 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">3D Вид</h3>
+            <div className="h-64 bg-gray-100 rounded-lg">
               <ThreeDViewer
-                variant={
-                  variants.find((v) => v.id === selectedVariantId) || null
-                }
+                variant={variants.find((v) => v.id === selectedVariantId) || null}
                 planGeometry={currentPlanGeometry}
                 viewMode="3d"
               />
             </div>
           </div>
         )}
-
-        {variants.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              Generated Variants
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {variants.map((variant) => (
-                <VariantCard
-                  key={variant.id}
-                  variant={variant}
-                  onContinueConversation={handleContinueConversation}
-                  onClick={() => handleVariantClick(variant)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Chat Input - Fixed at bottom */}
+      <div className="px-4 pb-4 pt-2 bg-[#2593F4] sticky bottom-0 z-20">
+        <ChatInput 
+          onSend={handleSend} 
+          disabled={processing || uploading}
+          onFileUpload={handleFileUpload}
+          showUploadHint={selectedAction && !planId}
+        />
+      </div>
+
       <BottomNav />
     </div>
   );

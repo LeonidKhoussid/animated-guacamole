@@ -48,6 +48,7 @@ function AppContent() {
         
         {/* Pages with BottomNav - mobile design, no Navbar/Footer */}
         <Route path="/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+        <Route path="/chat" element={<ProtectedRoute><ChatAIPage /></ProtectedRoute>} />
         <Route path="/chat/:planId" element={<ProtectedRoute><ChatAIPage /></ProtectedRoute>} />
         <Route path="/favorites" element={<ProtectedRoute><FavoritesPage /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
