@@ -26,6 +26,7 @@ const defaultOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://animated-guacamole-7ahp.onrender.com',
+  'https://eloquent-sunflower-d11879.netlify.app',
 ];
 const allowedOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')

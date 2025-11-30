@@ -4,6 +4,9 @@
 
 ### Database
 
+CORS_ORIGINS=https://animated-guacamole-7ahp.onrender.com,https://eloquent-sunflower-d11879.netlify.app
+```
+
 ```env
 DATABASE_URL=postgresql://someone:loler123@272a037a1d5a257ba4662930.twc1.net:5432/plan_ai?schema=public&client_encoding=UTF8
 ```
