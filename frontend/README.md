@@ -1,16 +1,50 @@
-# React + Vite
+# PlanAI Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Интерфейс для веб‑приложения PlanAI: загрузка планов, общение с ИИ, просмотр 3D моделей и управление вариантами перепланировки.
 
-Currently, two official plugins are available:
+## Технологический стек
+- React + Vite
+- Tailwind CSS
+- Three.js (GLTF/Draco/Meshopt)
+- Axios
+- React Router
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Основной функционал
+- Загрузка плана квартиры и запуск генерации вариантов через ИИ.
+- Чат с потоковым получением вариантов (WebSocket) и сохранением истории.
+- Просмотр вариантов: карточки, детальная страница, 3D/топ/первое лицо (Three.js), избранное.
+- Избранное: добавление/удаление, просмотр списка.
+- Навигация по разделам (нижнее меню).
 
-## React Compiler
+## Быстрый старт
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Откройте `http://localhost:5173` (по умолчанию).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Переменные окружения
+Создайте `.env` (или `.env.local`) и задайте:
+```
+VITE_API_BASE_URL=http://localhost:3001
+```
 
-## Expanding the ESLint configuration
+## Структура
+```
+src/
+  components/    # UI и 3D (ThreeDViewer, VariantCard, Chat)
+  pages/         # Страницы (ChatAIPage, VariantViewerPage, Dashboard, Favorites)
+  hooks/         # WebSocket
+  utils/         # apiClient, загрузка файлов
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Скрипты
+- `npm run dev` — режим разработки
+- `npm run build` — сборка
+- `npm run preview` — предпросмотр сборки
+
+## Примечания по 3D
+- Загрузка моделей GLB через прокси бекенда `/plans/proxy` (обходит CORS).
+- Поддержка Draco/Meshopt для ускорения загрузки.
+- Режимы камеры: 3D орбита, топ, первое лицо (WASD + джойстик).
