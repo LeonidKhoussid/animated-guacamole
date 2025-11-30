@@ -25,6 +25,9 @@ const fastify = Fastify({
 const defaultOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  'http://localhost:8080',
+  'http://147.45.214.196:3001',
+  'http://147.45.214.196:8080',
   'https://animated-guacamole-7ahp.onrender.com',
   'https://eloquent-sunflower-d11879.netlify.app',
 ];

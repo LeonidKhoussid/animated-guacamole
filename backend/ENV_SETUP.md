@@ -4,7 +4,7 @@
 
 ### Database
 
-CORS_ORIGINS=https://animated-guacamole-7ahp.onrender.com,https://eloquent-sunflower-d11879.netlify.app
+CORS_ORIGINS=https://animated-guacamole-7ahp.onrender.com,https://eloquent-sunflower-d11879.netlify.app,http://147.45.214.196:3001,http://147.45.214.196:8080
 ```
 
 ```env
