@@ -52,4 +52,26 @@ export const getPlan = async (planId, userId) => {
   return plan;
 };
 
+export const getUserPlans = async (userId) => {
+  // Check if user exists
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found. Please log out and log in again.');
+  }
+
+  const plans = await prisma.plan.findMany({
+    where: {
+      userId,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  return plans;
+};
+
 

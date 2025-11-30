@@ -22,19 +22,11 @@ export const getVariant = async (variantId) => {
   console.log(`   - Has planGeometry field: ${'planGeometry' in variant}`);
   console.log(`   - planGeometry value:`, variant.planGeometry);
   console.log(`   - planGeometry type: ${typeof variant.planGeometry}`);
-  console.log(`   - planGeometry constructor:`, variant.planGeometry?.constructor?.name);
   console.log(`   - All variant keys:`, Object.keys(variant));
   
   if (variant.planGeometry) {
-    // Ensure planGeometry is a plain object (not Prisma JsonValue)
-    const planGeometryStr = JSON.stringify(variant.planGeometry);
-    const planGeometryObj = JSON.parse(planGeometryStr);
-    const walls = planGeometryObj?.geometry?.walls || [];
+    const walls = variant.planGeometry?.geometry?.walls || [];
     console.log(`   - planGeometry.geometry.walls count: ${walls.length}`);
-    console.log(`   - planGeometry JSON string length: ${planGeometryStr.length}`);
-    
-    // Replace with plain object to ensure proper serialization
-    variant.planGeometry = planGeometryObj;
   } else {
     console.log(`   ⚠️  planGeometry is null or undefined in database`);
   }

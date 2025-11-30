@@ -1,4 +1,4 @@
-import { uploadPlan, getPlan, proxyImage } from '../controllers/plans.controller.js';
+import { uploadPlan, getPlan, getUserPlans, proxyImage } from '../controllers/plans.controller.js';
 
 export default async function (fastify) {
   // Proxy endpoint for images (no auth required, but validates URL)
@@ -54,6 +54,36 @@ export default async function (fastify) {
       },
     },
   }, uploadPlan);
+
+  fastify.get('/plans', {
+    schema: {
+      tags: ['Plans'],
+      description: 'Get all plans for the authenticated user',
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          description: 'Plans retrieved successfully',
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              userId: { type: 'string', format: 'uuid' },
+              fileUrl: { type: 'string', format: 'uri' },
+              createdAt: { type: 'string', format: 'date-time' },
+            },
+          },
+        },
+        401: {
+          description: 'Unauthorized',
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, getUserPlans);
 
   fastify.get('/plans/:id', {
     schema: {

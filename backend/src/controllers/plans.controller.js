@@ -89,4 +89,20 @@ export const getPlan = async (request, reply) => {
   }
 };
 
+export const getUserPlans = async (request, reply) => {
+  try {
+    await authenticate(request, reply);
+    const userId = request.user.userId;
+
+    const plans = await plansService.getUserPlans(userId);
+    return reply.send(plans);
+  } catch (error) {
+    if (error.message.includes('User not found')) {
+      return reply.code(401).send({ error: error.message });
+    }
+    request.log.error(error);
+    return reply.code(500).send({ error: 'Internal server error' });
+  }
+};
+
 
