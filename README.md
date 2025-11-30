@@ -82,7 +82,7 @@
 - `UPerNet` — архитектура Transformer + CNN для семантической сегментации
 - `UniPCMultistepScheduler` — планировщик шагов диффузии для ускоренной генерации
 - `Whisper` — распознавание речи
-- `Meta-Llama-3-8B-Instruct.Q4_0` — генерация текстовых ответов
+- `Meta-Llama-3-8B-Instruct.Q4_0` — llama для общения
 - `Silero TTS v5_cis_base` — синтез речи
 
 ---
