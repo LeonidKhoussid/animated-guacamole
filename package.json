@@ -1,0 +1,20 @@
+{
+  "name": "bigplan",
+  "version": "1.0.0",
+  "description": "PlanAI - Apartment Replanning Application",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "prod": "concurrently \"npm run prod:backend\" \"npm run prod:frontend\"",
+    "prod:backend": "cd backend && npm run prod",
+    "prod:frontend": "cd frontend && npm run prod",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
+

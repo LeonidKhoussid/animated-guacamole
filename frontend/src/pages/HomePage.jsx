@@ -17,7 +17,7 @@ export const HomePage = () => {
           <div className="flex items-center space-x-3">
             {/* TODO: Replace with actual user profile image URL */}
             <img
-              src="https://via.placeholder.com/50" // IMAGE_URL: User profile picture
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50'%3E%3Crect fill='%232593F4' width='50' height='50'/%3E%3Ctext fill='white' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='20'%3EU%3C/text%3E%3C/svg%3E"
               alt="Profile"
               className="w-12 h-12 rounded-full object-cover"
             />

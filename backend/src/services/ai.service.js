@@ -213,12 +213,12 @@ const generateVariantsWithAI = async (aiRequestId, planId, userPrompt, previousR
         }
 
         if (previousRequest.variants && previousRequest.variants.length > 0) {
-          const variantsSummary = previousRequest.variants
-            .map((v, i) => `Вариант ${i + 1}: ${v.description} (вероятность одобрения: ${Math.round(v.approvalProbability * 100)}%)`)
-            .join('\n');
-          conversationHistory.push({
-            role: 'assistant',
-            content: `Ранее предложенные варианты:\n${variantsSummary}`,
+          // Format variants as separate messages: "вариант 1: text", "вариант 2: text", etc.
+          previousRequest.variants.forEach((v, i) => {
+            conversationHistory.push({
+              role: 'assistant',
+              content: `Вариант ${i + 1}: ${v.description}`,
+            });
           });
         }
       }
@@ -244,6 +244,12 @@ const generateVariantsWithAI = async (aiRequestId, planId, userPrompt, previousR
     : '';
 
   const systemPrompt = `Ты ведущий эксперт по архитектурному проектированию и перепланировке жилых помещений в России с 20-летним опытом. Твоя задача - создать 3-5 УНИКАЛЬНЫХ, ДЕТАЛЬНЫХ и ПРАКТИЧНЫХ вариантов перепланировки квартиры на основе конкретного запроса пользователя.
+
+ВАЖНО: После генерации вариантов, ты ДОЛЖЕН также ответить на вопрос: "Какие стены можно демонтировать, а какие нельзя?" 
+Укажи конкретно для каждого варианта:
+- Какие стены являются несущими (НЕЛЬЗЯ демонтировать) - укажи их расположение и характеристики
+- Какие стены являются перегородками (МОЖНО демонтировать) - укажи их расположение
+- Объясни почему те или иные стены можно или нельзя трогать
 
 СТРОГИЕ ТРЕБОВАНИЯ К КАЧЕСТВУ:
 1. ВСЕ ответы ТОЛЬКО на РУССКОМ языке, профессиональная терминология
@@ -322,7 +328,7 @@ ${userRequestEmphasis}
   ]
 }`;
 
-  const userMessage = userPrompt || 'Предложи варианты перепланировки квартиры';
+  const userMessage = `${userPrompt || 'Предложи варианты перепланировки квартиры'}\n\nТакже укажи для каждого варианта: какие стены можно демонтировать, а какие нельзя. Объясни, какие стены являются несущими (нельзя трогать) и какие являются перегородками (можно демонтировать).`;
 
   console.log('\n========== GIGACHAT VARIANT GENERATION START ==========');
   console.log('📝 User prompt:', userMessage);
@@ -926,12 +932,15 @@ export const streamVariants = async (aiRequestId, planId, connection, userPrompt
     
     // Stream existing variants
     for (let i = 0; i < aiRequest.variants.length; i++) {
+      // Format variant message as "вариант 1: text"
+      const variantMessage = `Вариант ${i + 1}: ${aiRequest.variants[i].description}`;
       sendMessage('option_generated', {
         variant_id: aiRequest.variants[i].id,
         index: i + 1,
         total: aiRequest.variants.length,
         description: aiRequest.variants[i].description,
         approval_probability: aiRequest.variants[i].approvalProbability,
+        message: variantMessage,
       });
       await new Promise(resolve => setTimeout(resolve, 300));
     }
@@ -962,12 +971,15 @@ export const streamVariants = async (aiRequestId, planId, connection, userPrompt
 
   // Stream each variant as it's generated
   for (let i = 0; i < variants.length; i++) {
+    // Format variant message as "вариант 1: text"
+    const variantMessage = `Вариант ${i + 1}: ${variants[i].description}`;
     sendMessage('option_generated', {
       variant_id: variants[i].id,
       index: i + 1,
       total: variants.length,
       description: variants[i].description,
       approval_probability: variants[i].approvalProbability,
+      message: variantMessage,
     });
     await new Promise(resolve => setTimeout(resolve, 500));
   }

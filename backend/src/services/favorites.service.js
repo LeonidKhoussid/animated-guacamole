@@ -64,25 +64,48 @@ export const removeFavorite = async (userId, variantId) => {
 };
 
 export const getUserFavorites = async (userId) => {
-  const favorites = await prisma.favorite.findMany({
-    where: { userId },
-    include: {
-      variant: {
-        include: {
-          aiRequest: {
-            include: {
-              plan: true,
+  try {
+    const favorites = await prisma.favorite.findMany({
+      where: { userId },
+      include: {
+        variant: {
+          include: {
+            aiRequest: {
+              include: {
+                plan: {
+                  select: {
+                    id: true,
+                    fileUrl: true,
+                    createdAt: true,
+                  },
+                },
+              },
             },
           },
         },
       },
-    },
-    orderBy: {
-      id: 'desc',
-    },
-  });
+      orderBy: {
+        id: 'desc',
+      },
+    });
 
-  return favorites;
+    console.log(`Found ${favorites.length} favorites for user ${userId}`);
+    
+    // Filter out favorites where variant was deleted
+    const validFavorites = favorites.filter(fav => {
+      if (!fav.variant) {
+        console.warn(`Favorite ${fav.id} has null variant, filtering out`);
+        return false;
+      }
+      return true;
+    });
+    
+    console.log(`Returning ${validFavorites.length} valid favorites`);
+    return validFavorites;
+  } catch (error) {
+    console.error('Error in getUserFavorites:', error);
+    throw error;
+  }
 };
 
 

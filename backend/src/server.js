@@ -103,8 +103,9 @@ fastify.get('/health', {
 const start = async () => {
   try {
     const port = process.env.PORT || 3001;
-    await fastify.listen({ port, host: '0.0.0.0' });
-    console.log(`Server listening on port ${port}`);
+    const host = process.env.HOST || '0.0.0.0';
+    await fastify.listen({ port, host });
+    console.log(`Server listening on ${host}:${port}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

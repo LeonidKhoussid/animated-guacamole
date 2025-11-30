@@ -4,8 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "cross-env VITE_API_BASE_URL=http://localhost:3001 vite --host localhost",
+    "prod": "cross-env VITE_API_BASE_URL=http://147.45.214.196:3001 vite --host 0.0.0.0",
     "build": "vite build",
+    "build:dev": "cross-env VITE_API_BASE_URL=http://localhost:3001 vite build",
+    "build:prod": "cross-env VITE_API_BASE_URL=http://147.45.214.196:3001 vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -24,6 +27,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.22",
+    "cross-env": "^7.0.3",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",

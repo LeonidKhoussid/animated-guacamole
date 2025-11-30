@@ -11,16 +11,16 @@ export default async function (fastify) {
         type: 'object',
         required: ['variant_id'],
         properties: {
-          variant_id: { type: 'string', format: 'uuid' },
+          variant_id: { 
+            type: 'string',
+            minLength: 1,
+          },
         },
       },
       response: {
         201: {
           description: 'Variant added to favorites',
           type: 'object',
-          properties: {
-            message: { type: 'string' },
-          },
         },
         400: {
           description: 'Bad request',
@@ -61,7 +61,6 @@ export default async function (fastify) {
         properties: {
           variant_id: {
             type: 'string',
-            format: 'uuid',
             description: 'Variant ID',
           },
         },

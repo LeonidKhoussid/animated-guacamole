@@ -115,11 +115,13 @@ export const ChatAIPage = () => {
         return;
       }
       processedVariantsRef.current.add(key);
+      // Format as "вариант 1: text" or use provided message
+      const variantMessage = data.data.message || `Вариант ${data.data.index}: ${data.data.description || 'готов'}`;
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `Вариант ${data.data.index} из ${data.data.total} готов!`,
+          content: variantMessage,
         },
       ]);
       // Load variant details

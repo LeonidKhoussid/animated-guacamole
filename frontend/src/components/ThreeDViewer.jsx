@@ -24,6 +24,7 @@ const ORTHO_FRUSTUM_SIZE = 18;
     active: false,
     vx: 0,
     vz: 0,
+    vy: 0, // Height control
   });
   const [joystickPos, setJoystickPos] = useState({ x: 0, y: 0, active: false });
   const movementStateRef = useRef({
@@ -380,6 +381,13 @@ const ORTHO_FRUSTUM_SIZE = 18;
           camera.translateX(moveX);
           camera.translateZ(-moveZ);
         }
+
+        // Height control from joystick
+        const heightSpeed = 3;
+        const moveY = joystickStateRef.current.vy * heightSpeed * delta;
+        camera.position.y += moveY;
+        // Clamp height to reasonable bounds (0.5 to 3 meters)
+        camera.position.y = Math.max(0.5, Math.min(3.0, camera.position.y));
 
         renderer.render(scene, camera);
       };
@@ -1134,7 +1142,15 @@ const ORTHO_FRUSTUM_SIZE = 18;
     const dy = e.clientY - cy;
     const radius = rect.width / 2;
     const clamped = clampJoystick(dx, dy, radius);
-    joystickStateRef.current = { active: true, vx: clamped.x / radius, vz: -clamped.y / radius };
+    // Horizontal movement: x controls left/right, y controls forward/back
+    // Vertical movement: use a separate control or map to a different axis
+    // For now, we'll use the joystick for horizontal movement and add a separate height control
+    joystickStateRef.current = { 
+      active: true, 
+      vx: clamped.x / radius, 
+      vz: -clamped.y / radius,
+      vy: 0 // Height will be controlled separately
+    };
     setJoystickPos({ x: clamped.x, y: clamped.y, active: true });
   };
 
@@ -1147,13 +1163,27 @@ const ORTHO_FRUSTUM_SIZE = 18;
     const dy = e.clientY - cy;
     const radius = rect.width / 2;
     const clamped = clampJoystick(dx, dy, radius);
-    joystickStateRef.current = { active: true, vx: clamped.x / radius, vz: -clamped.y / radius };
+    joystickStateRef.current = { 
+      active: true, 
+      vx: clamped.x / radius, 
+      vz: -clamped.y / radius,
+      vy: joystickStateRef.current.vy // Preserve height
+    };
     setJoystickPos({ x: clamped.x, y: clamped.y, active: true });
   };
 
   const handleJoystickEnd = () => {
-    joystickStateRef.current = { active: false, vx: 0, vz: 0 };
+    joystickStateRef.current = { active: false, vx: 0, vz: 0, vy: 0 };
     setJoystickPos({ x: 0, y: 0, active: false });
+  };
+
+  const handleHeightControl = (direction) => {
+    // direction: 1 for up, -1 for down
+    joystickStateRef.current.vy = direction;
+  };
+
+  const handleHeightControlEnd = () => {
+    joystickStateRef.current.vy = 0;
   };
 
   const clampJoystick = (dx, dy, radius) => {
@@ -1330,7 +1360,7 @@ const ORTHO_FRUSTUM_SIZE = 18;
         disposeObject(apartmentModelRef.current);
         apartmentModelRef.current = null;
       }
-      joystickStateRef.current = { active: false, vx: 0, vz: 0 };
+      joystickStateRef.current = { active: false, vx: 0, vz: 0, vy: 0 };
       setIsLoading(false);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -1359,25 +1389,56 @@ const ORTHO_FRUSTUM_SIZE = 18;
         </div>
       )}
       {viewMode === 'first-person' && (
-        <div className="absolute bottom-4 left-4 z-20 select-none">
-          <div
-            className="w-24 h-24 rounded-full bg-black/10 border border-white/50 relative touch-none"
-            style={{ touchAction: 'none' }}
-            onPointerDown={(e) => handleJoystickStart(e)}
-            onPointerMove={(e) => handleJoystickMove(e)}
-            onPointerUp={(e) => handleJoystickEnd(e)}
-            onPointerCancel={(e) => handleJoystickEnd(e)}
-            onPointerLeave={(e) => handleJoystickEnd(e)}>
+        <>
+          {/* Main Joystick - Lower position */}
+          <div className="absolute left-1/2 bottom-20 -translate-x-1/2 z-20 select-none">
             <div
-              className="w-12 h-12 rounded-full bg-white/70 border border-gray-400 absolute"
-              style={{
-                left: `calc(50% - 24px + ${joystickPos.x}px)`,
-                top: `calc(50% - 24px + ${joystickPos.y}px)`,
-                transition: joystickPos.active ? 'none' : 'transform 0.15s ease, left 0.15s ease, top 0.15s ease',
-              }}
-            />
+              className="w-24 h-24 rounded-full bg-black/20 border-2 border-white/50 relative touch-none"
+              style={{ touchAction: 'none' }}
+              onPointerDown={(e) => handleJoystickStart(e)}
+              onPointerMove={(e) => handleJoystickMove(e)}
+              onPointerUp={(e) => handleJoystickEnd(e)}
+              onPointerCancel={(e) => handleJoystickEnd(e)}
+              onPointerLeave={(e) => handleJoystickEnd(e)}>
+              <div
+                className="w-12 h-12 rounded-full bg-white/80 border-2 border-blue-500 absolute shadow-lg"
+                style={{
+                  left: `calc(50% - 24px + ${joystickPos.x}px)`,
+                  top: `calc(50% - 24px + ${joystickPos.y}px)`,
+                  transition: joystickPos.active ? 'none' : 'transform 0.15s ease, left 0.15s ease, top 0.15s ease',
+                }}
+              />
+            </div>
           </div>
-        </div>
+          
+          {/* Height Control - Right side */}
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 select-none flex flex-col gap-2">
+            <button
+              className="w-12 h-12 rounded-full bg-black/20 border-2 border-white/50 flex items-center justify-center touch-none"
+              style={{ touchAction: 'none' }}
+              onPointerDown={() => handleHeightControl(1)}
+              onPointerUp={handleHeightControlEnd}
+              onPointerCancel={handleHeightControlEnd}
+              onPointerLeave={handleHeightControlEnd}
+            >
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            <button
+              className="w-12 h-12 rounded-full bg-black/20 border-2 border-white/50 flex items-center justify-center touch-none"
+              style={{ touchAction: 'none' }}
+              onPointerDown={() => handleHeightControl(-1)}
+              onPointerUp={handleHeightControlEnd}
+              onPointerCancel={handleHeightControlEnd}
+              onPointerLeave={handleHeightControlEnd}
+            >
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        </>
       )}
       <div ref={containerRef} className="w-full h-full" />
     </div>
