@@ -53,3 +53,4 @@ node scripts/check-db-encoding.js
 
 This will show you the database, client, and server encoding settings.
 
+
